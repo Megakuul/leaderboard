@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  leaderboard
+
+  Sample SAM Template for leaderboard
+
+Parameters:
+  MaxDatabaseRCU:
+    Type: Number
+    Default: 100 # Set to -1 to not use any maximum (applicable if you only fear god)
+    Description: "Maximum read capacity units on every dynamodb entrypoint (if reached the database is throttled)"
+  MaxDatabaseWCU:
+    Type: Number
+    Default: 100 # Set to -1 to not use any maximum (applicable if you only fear god)
+    Description: "Maximum write capacity units on every dynamodb entrypoint (if reached the database is throttled)"
+
+Globals:
+  Function:
+    Timeout: 2
+
+Resources:
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: leaderboard-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+          # username is used as base table partition key for efficient user queries.
+        - AttributeName: "username"
+          AttributeType: "S"
+
+          # unlike on the base table GSI does not require a unique primary key, therefore we can use the elo (non unique) here.
+        - AttributeName: "elo"
+          AttributeType: "N"
+          # there is no need for a sort key as the partition key of the GSI is internally sorted
+          # and we don't perform complex queries involving more then just one attribute.
+      GlobalSecondaryIndexes:
+        IndexName: elo_gsi
+        KeySchema:
+          - AttributeName: "elo"
+            AttributeType: "HASH"
+        OnDemandThroughput:
+          MaxReadRequestUnits: !Ref MaxDatabaseRCU
+          MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+
+      KeySchema:
+        - AttributeName: "username"
+          AttributeType: "HASH"
+      OnDemandThroughput:
+        MaxReadRequestUnits: !Ref MaxDatabaseRCU
+        MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+
+
+  LeaderboardApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: Prod
+
+  LeaderboardFunc:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Buildmethod: go1.x
+    Properties:
+      CodeUri: api
+      Handler: api
+      Runtime: provided.al2023
+      Events:
+        FetchLeaderboard:
+          Type: HttpApi
+          Properties:
+            Path: /api/fetch
+            Method: GET
+        AddGame:
+          Type: HttpApi
+          Properties:
+            Path: /api/add
+            Method: POST
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref Table
+
+  
+  PutFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go.1x 
+    Properties:
+      CodeUri: api
+      Handler: api
+      Runtime: provided.al2023
+      Architectures:
+        - x86_64
+      Events:
+        GetLeaderboard:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: put
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Table
+      Policies:
+        - DynamoDBWritePolicy: # More info about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+            TableName: !Ref Table
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  PutApi:
+    Description: "API Gateway endpoint URL for Prod stage for Put function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/"
+  PutFunction:
+    Description: "Put Lambda Function ARN"
+    Value: !GetAtt PutFunction.Arn
+  PutTable:
+    Description: "DynamoDB table name"
+    Value: !GetAtt Table.Arn
