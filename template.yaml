@@ -6,6 +6,14 @@ Description: >
   Sample SAM Template for leaderboard
 
 Parameters:
+  CognitoDomainPrefix:
+    Type: String
+    Default: "leaderboard"
+    Description: "Domain prefix where the leaderboard cognito provider is hosted on."
+  LeaderboardDomain:
+    Type: String
+    Default: "leaderboard.megakuul.ch"
+    Description: "Domain where the application (api & frontend) is hosted on."
   MaxDatabaseRCU:
     Type: Number
     Default: 100 # Set to -1 to not use any maximum (applicable if you only fear god)
@@ -20,7 +28,7 @@ Globals:
     Timeout: 2
 
 Resources:
-  UserTable:
+  LeaderboardUserTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: leaderboard-users
@@ -51,19 +59,151 @@ Resources:
         MaxReadRequestUnits: !Ref MaxDatabaseRCU
         MaxWriteRequestUnits: !Ref MaxDatabaseWCU
 
+  LeaderboardCognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: "leaderboard-auth-pool"
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      MfaConfiguration: OPTIONAL
+  
+  LeaderboardCognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref LeaderboardCognitoUserPool
+
+  LeaderboardCognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref LeaderboardCognitoUserPool
+      ClientName: "leaderboard-auth-client"
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: implicit
+      AllowedOAuthScopes:
+        - openid
+        - profile
+      CallbackURLs:
+        - !Sub "https://${LeaderboardDomain}"
+
+
+  LeaderboardCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref LeaderboardDomain
+      ValidationMethod: "DNS"
+      DomainValidationOption:
+        - DomainName: !Ref LeaderboardDomain
+          ValidationDomain: !Ref LeaderboardDomain
+
+  LeaderboardCDNOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: "leaderboard-cdn-origin-access"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  LeaderboardCDN:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        PriceClass: "PriceClass_All"
+        ViewerCertificate:
+          AcmCertificateArn: !Ref LeaderboardCertificate
+          SslSupportMethod: "sni-only"
+          MinimumProtocolVersion: "TLSv1.2_2021"
+        Origins:
+          - Id: "leaderboard-web-bucket"
+            DomainName: !GetAtt LeaderboardWebBucket.DomainName
+            OriginAccessControlId: !GetAtt LeaderboardCDNOriginAccessControl.Id
+            S3OriginConfig: {}
+          - Id: "leaderboard-api-gateway"
+            DomainName: !Ref LeaderboardDomain
+            CustomOriginConfig:
+              OriginProtocolPolicy: "https-only"
+        DefaultCacheBehavior:
+          TargetOriginId: "leaderboard-web-bucket"
+          AllowedMethods:
+            - GET
+            - HEAD
+          CacheMethods:
+            - GET
+            - HEAD
+          ViewerProtocolPolicy: "redirect-to-https"
+        CacheBehaviors:
+          - PathPattern: "/api/*"
+            TargetOriginId: "leaderboard-api-gateway"
+            AllowedMethods:
+              - GET
+              - HEAD
+            Compress: false
+            ViewerProtocolPolicy: redirect-to-https
+        Aliases:
+          - !Ref LeaderboardDomain
+      Tags:
+        - Key: "Name"
+          Value: "leaderboard-cdn"
+
+
+  LeaderboardWebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: "leaderboard-web-bucket"
+
+  LeaderboardWebBucketBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LeaderboardWebBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "s3:GetObject"
+            Effect: Allow
+            Resource:
+              - !Sub "${LeaderboardWebBucket.Arn}/*"
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": 
+                  - !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${LeaderboardCDN}"
 
   LeaderboardApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      Domain:
+        CertificateArn: !Ref LeaderboardCertificate
+        DomainName: !Ref LeaderboardDomain
+
+      Auth:
+        Authorizers:
+          OAuth2Authorizer:
+            # Read the access token from authorization header
+            IdentitySource: "$request.header.Authorization"
+            # Verify access token with public key at cognito issuer (and the user pools aud)
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${LeaderboardCognitoUserPool}
+              audience:
+                - !Ref LeaderboardCognitoUserPool
+
+        DefaultAuthorizer: OAuth2Authorizer
       StageName: Prod
 
-  LeaderboardFunc:
+  LeaderboardFetchFunc:
     Type: AWS::Serverless::Function
     Metadata:
       Buildmethod: go1.x
     Properties:
-      CodeUri: api
-      Handler: api
+      CodeUri: api/fetch
+      Handler: fetch
       Runtime: provided.al2023
       Events:
         FetchLeaderboard:
@@ -71,52 +211,66 @@ Resources:
           Properties:
             Path: /api/fetch
             Method: GET
-        AddGame:
-          Type: HttpApi
-          Properties:
-            Path: /api/add
-            Method: POST
+            ApiId: !Ref LeaderboardApi
+            Auth:
+              Authorizer: NONE
       Environment:
         Variables:
-          TABLE_NAME: !Ref Table
+          USERTABLE: !Ref LeaderboardUserTable
       Policies:
-        - DynamoDBWritePolicy:
-            TableName: !Ref Table
+        - DynamoDBReadPolicy:
+            TableName: !Ref LeaderboardUserTable
 
-  
-  PutFunction:
+  LeaderboardUpdateFunc:
     Type: AWS::Serverless::Function
     Metadata:
-      BuildMethod: go.1x 
+      Buildmethod: go1.x
     Properties:
-      CodeUri: api
-      Handler: api
+      CodeUri: api/update
+      Handler: update
       Runtime: provided.al2023
-      Architectures:
-        - x86_64
       Events:
-        GetLeaderboard:
+        FetchLeaderboard:
           Type: HttpApi
           Properties:
-            Path: /
-            Method: put
+            Path: /api/update
+            Method: POST
+            ApiId: !Ref LeaderboardApi
       Environment:
         Variables:
-          TABLE_NAME: !Ref Table
+          USERTABLE: !Ref LeaderboardUserTable
       Policies:
-        - DynamoDBWritePolicy: # More info about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
-            TableName: !Ref Table
+        - DynamoDBWritePolicy:
+            TableName: !Ref LeaderboardUserTable
+
+  LeaderboardAddGameFunc:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Buildmethod: go1.x
+    Properties:
+      CodeUri: api/addgame
+      Handler: addgame
+      Runtime: provided.al2023
+      Events:
+        FetchLeaderboard:
+          Type: HttpApi
+          Properties:
+            Path: /api/addgame
+            Method: POST
+            ApiId: !Ref LeaderboardApi
+      Environment:
+        Variables:
+          USERTABLE: !Ref LeaderboardUserTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LeaderboardUserTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref LeaderboardUserTable
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  PutApi:
-    Description: "API Gateway endpoint URL for Prod stage for Put function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/"
-  PutFunction:
-    Description: "Put Lambda Function ARN"
-    Value: !GetAtt PutFunction.Arn
-  PutTable:
-    Description: "DynamoDB table name"
-    Value: !GetAtt Table.Arn
+  CognitoEndpoint:
+    Description: "Cognito frontend endpoint. Provide this url to the frontend."
+    Value: !GetAtt LeaderboardCognitoUserPool.ProviderURL
+  WebBucket:
+    Description: "Frontend host bucket. Insert the Webapplication here."
+    Value: !GetAtt LeaderboardWebBucket.Arn
