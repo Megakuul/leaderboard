@@ -1,11 +1,11 @@
-import { RequestAccessToken } from "./auth";
+import { RequestTokens } from "./auth";
 
 /**
  * @typedef {Object} User
  * @property {string} username
  * @property {string} title
  * @property {string} iconurl
- * @property {int} elo
+ * @property {number} elo
  */
 
 /**
@@ -21,7 +21,7 @@ import { RequestAccessToken } from "./auth";
  * @param {string} username evaluated first 
  * @param {string} elo only evaluated if no username is provided
  * @param {string} lastpagekey only evaluated if no elo is provided
- * @returns {FetchResponse} if api call succeeds.
+ * @returns {Promise<FetchResponse>} if api call succeeds.
  * @throws {Error} if api call failed.
  */
 export const Fetch = async (username="", elo="", lastpagekey="") => {
@@ -50,32 +50,31 @@ export const Fetch = async (username="", elo="", lastpagekey="") => {
 /**
  * Updates or registers the user based on the cognito user profile.
  * https://github.com/Megakuul/leaderboard/blob/main/README.md#api
- * @param {string} accessToken
- * @returns {UpdateResponse} if api call succeeds.
+ * @param {string} idToken
+ * @returns {Promise<UpdateResponse>} if api call succeeds.
  * @throws {Error} if api call failed.
  */
-export const Update = async (accessToken) => {
+export const Update = async (idToken) => {
   const devUrl = import.meta.env.VITE_DEV_API_URL;
   const res = await fetch(`${devUrl?devUrl:""}/api/update`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`
+      Authorization: `Bearer ${idToken}`
     },
-    body: body,
   })
   if (res.ok) {
     return await res.json();
   } else if (res.status === 401) {
-    RequestAccessToken()
+    RequestTokens()
   } else {
-    throw new Error(res.text());
+    throw new Error(await res.text());
   }
 }
 
 /**
  * @typedef {Object} UserResult
  * @property {string} username
- * @property {int} placement
+ * @property {number} placement
  */
 
 /**
@@ -93,23 +92,23 @@ export const Update = async (accessToken) => {
  * https://github.com/Megakuul/leaderboard/blob/main/README.md#api
  * @param {string} accessToken 
  * @param {AddGameRequest} request 
- * @returns {AddGameResponse} if api call succeeds.
+ * @returns {Promise<AddGameResponse>} if api call succeeds.
  * @throws {Error} if api call failed.
  */
 export const AddGame = async (accessToken, request) => {
   const devUrl = import.meta.env.VITE_DEV_API_URL;
-  const res = await fetch(`${devUrl?devUrl:""}/api/fetch?${params.toString()}`, {
+  const res = await fetch(`${devUrl?devUrl:""}/api/addgame`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`
     },
-    body: body,
+    body: JSON.stringify(request),
   })
   if (res.ok) {
     return await res.json();
   } else if (res.status === 401) {
-    RequestAccessToken()
+    RequestTokens()
   } else {
-    throw new Error(res.text());
+    throw new Error(await res.text());
   }
 }

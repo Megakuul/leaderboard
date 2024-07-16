@@ -28,36 +28,11 @@ Globals:
     Timeout: 2
 
 Resources:
-  LeaderboardUserTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: leaderboard-users
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-          # username is used as base table partition key for efficient user queries.
-        - AttributeName: "username"
-          AttributeType: "S"
+  # Using ugly separator comments because cloudformation is dogwater:
+  # ============================================
+  # =========== Cognito Authentication =========
+  # ============================================
 
-          # unlike on the base table GSI does not require a unique primary key, therefore we can use the elo (non unique) here.
-        - AttributeName: "elo"
-          AttributeType: "N"
-          # there is no need for a sort key as the partition key of the GSI is internally sorted
-          # and we don't perform complex queries involving more then just one attribute.
-      GlobalSecondaryIndexes:
-        IndexName: elo_gsi
-        KeySchema:
-          - AttributeName: "elo"
-            AttributeType: "HASH"
-        OnDemandThroughput:
-          MaxReadRequestUnits: !Ref MaxDatabaseRCU
-          MaxWriteRequestUnits: !Ref MaxDatabaseWCU
-
-      KeySchema:
-        - AttributeName: "username"
-          AttributeType: "HASH"
-      OnDemandThroughput:
-        MaxReadRequestUnits: !Ref MaxDatabaseRCU
-        MaxWriteRequestUnits: !Ref MaxDatabaseWCU
 
   LeaderboardCognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -87,6 +62,11 @@ Resources:
         - profile
       CallbackURLs:
         - !Sub "https://${LeaderboardDomain}"
+
+
+  # ============================================
+  # =========== CDN Proxy ======================
+  # ============================================
 
 
   LeaderboardCertificate:
@@ -150,6 +130,11 @@ Resources:
           Value: "leaderboard-cdn"
 
 
+  # ============================================
+  # =========== Frontend =======================
+  # ============================================
+
+
   LeaderboardWebBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -176,6 +161,82 @@ Resources:
                 "AWS:SourceArn": 
                   - !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${LeaderboardCDN}"
 
+
+  # ============================================
+  # =========== Database =======================
+  # ============================================
+
+
+  LeaderboardUserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: leaderboard-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+          # username is used as base table partition key for efficient user queries.
+        - AttributeName: "username"
+          AttributeType: "S"
+
+          # unlike on the base table GSI does not require a unique primary key, therefore we can use the elo (non unique) here.
+        - AttributeName: "elo"
+          AttributeType: "N"
+          # there is no need for a sort key as the partition key of the GSI is internally sorted
+          # and we don't perform complex queries involving more then just one attribute.
+      GlobalSecondaryIndexes:
+        IndexName: elo_gsi
+        KeySchema:
+          - AttributeName: "elo"
+            AttributeType: "HASH"
+        OnDemandThroughput:
+          MaxReadRequestUnits: !Ref MaxDatabaseRCU
+          MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+
+      KeySchema:
+        - AttributeName: "username"
+          AttributeType: "HASH"
+      OnDemandThroughput:
+        MaxReadRequestUnits: !Ref MaxDatabaseRCU
+        MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+
+  LeaderboardGameTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: leaderboard-games
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+          # gameid is used as base table partition key for efficient user queries.
+        - AttributeName: "gameid"
+          AttributeType: "S"
+
+          # the timepoint attribute is used as part key for the gsi to ensure quick lookups to games based on the timepoint.
+        - AttributeName: "timepoint"
+          AttributeType: "N"
+          # there is no need for a sort key as the partition key of the GSI is internally sorted by default.
+      GlobalSecondaryIndexes:
+        IndexName: timepoint_gsi
+        KeySchema:
+          - AttributeName: "timepoint"
+            AttributeType: "HASH"
+        OnDemandThroughput:
+          MaxReadRequestUnits: !Ref MaxDatabaseRCU
+          MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+
+      TimeToLiveSpecification:
+        AttributeName: "expires_in"
+        Enabled: true
+      KeySchema:
+        - AttributeName: "gameid"
+          AttributeType: "HASH"
+      OnDemandThroughput:
+        MaxReadRequestUnits: !Ref MaxDatabaseRCU
+        MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+
+
+  # ============================================
+  # =========== Backend API ====================
+  # ============================================
+
+
   LeaderboardApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -197,19 +258,19 @@ Resources:
         DefaultAuthorizer: OAuth2Authorizer
       StageName: Prod
 
-  LeaderboardFetchFunc:
+  LeaderboardUserFetchFunc:
     Type: AWS::Serverless::Function
     Metadata:
       Buildmethod: go1.x
     Properties:
-      CodeUri: api/fetch
+      CodeUri: api/user/fetch
       Handler: fetch
       Runtime: provided.al2023
       Events:
         FetchLeaderboard:
           Type: HttpApi
           Properties:
-            Path: /api/fetch
+            Path: /api/user/fetch
             Method: GET
             ApiId: !Ref LeaderboardApi
             Auth:
@@ -221,19 +282,19 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref LeaderboardUserTable
 
-  LeaderboardUpdateFunc:
+  LeaderboardUserUpdateFunc:
     Type: AWS::Serverless::Function
     Metadata:
       Buildmethod: go1.x
     Properties:
-      CodeUri: api/update
+      CodeUri: api/user/update
       Handler: update
       Runtime: provided.al2023
       Events:
         FetchLeaderboard:
           Type: HttpApi
           Properties:
-            Path: /api/update
+            Path: /api/user/update
             Method: POST
             ApiId: !Ref LeaderboardApi
       Environment:
@@ -243,34 +304,68 @@ Resources:
         - DynamoDBWritePolicy:
             TableName: !Ref LeaderboardUserTable
 
-  LeaderboardAddGameFunc:
+  LeaderboardGameFetchFunc:
     Type: AWS::Serverless::Function
     Metadata:
       Buildmethod: go1.x
     Properties:
-      CodeUri: api/addgame
-      Handler: addgame
+      CodeUri: api/game/fetch
+      Handler: fetchgame
       Runtime: provided.al2023
       Events:
         FetchLeaderboard:
           Type: HttpApi
           Properties:
-            Path: /api/addgame
+            Path: /api/game/fetch
+            Method: GET
+            ApiId: !Ref LeaderboardApi
+            Auth:
+              Authorizer: NONE
+      Environment:
+        Variables:
+          GAMETABLE: !Ref LeaderboardGameTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LeaderboardGameTable
+
+  LeaderboardGameAddFunc:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Buildmethod: go1.x
+    Properties:
+      CodeUri: api/game/add
+      Handler: add
+      Runtime: provided.al2023
+      Events:
+        FetchLeaderboard:
+          Type: HttpApi
+          Properties:
+            Path: /api/game/add
             Method: POST
             ApiId: !Ref LeaderboardApi
       Environment:
         Variables:
           USERTABLE: !Ref LeaderboardUserTable
+          GAMETABLE: !Ref LeaderboardGameTable
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref LeaderboardUserTable
         - DynamoDBWritePolicy:
             TableName: !Ref LeaderboardUserTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref LeaderboardGameTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref LeaderboardGameTable
+
+
 
 Outputs:
   CognitoEndpoint:
     Description: "Cognito frontend endpoint. Provide this url to the frontend."
     Value: !GetAtt LeaderboardCognitoUserPool.ProviderURL
+  CognitoClientID:
+    Description: "Cognito client ID. Provide this id to the frontend."
+    Value: !GetAtt LeaderboardCognitoUserPoolClient.ClientId
   WebBucket:
-    Description: "Frontend host bucket. Insert the Webapplication here."
-    Value: !GetAtt LeaderboardWebBucket.Arn
+    Description: "Frontend host bucket name. Insert the Webapplication here."
+    Value: !Ref LeaderboardWebBucket

@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/megakuul/leaderboard/api/fetch/query"
+	"github.com/megakuul/leaderboard/api/user/fetch/query"
 )
 
 type FetchResponse struct {

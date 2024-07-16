@@ -92,4 +92,70 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
     ```
 
 
+```POST /api/update```
 
+**Headers**:
+  - **Authorization**: "Bearer id_token"
+
+**Returns**:
+
+  - **200**: application/json
+    ```json
+    {
+      "message": "success message xy",
+    }
+    ```
+  - **401**: text/plain
+    Provided id_token has expired or is invalid (catched by the API gateway).
+    ```
+    errormessage as plaintext
+    ```
+  - **400-500**: text/plain
+    ```
+    errormessage as plaintext
+    ```
+
+
+```POST /api/addgame```
+
+**Headers**:
+  - **Authorization**: "Bearer access_token"
+
+**Body**:
+  - ```json
+    {
+      "results": [
+        {
+          "username": "Kater Karlo",
+          "placement": 1
+        },
+        {
+          "username": "Panzerknacker",
+          "placement": 2
+        }
+      ]
+    }
+    ```
+
+**Returns**:
+
+  - **200**: application/json
+    ```json
+    {
+      "message": "success message xy",
+    }
+    ```
+  - **401**: text/plain
+    Provided access_token has expired or is invalid (catched by the API gateway).
+    ```
+    errormessage as plaintext
+    ```
+  - **403**: text/plain
+    Provided access_token does not contain required scopes (catched by the API gateway).
+    ```
+    errormessage as plaintext
+    ```
+  - **400-500**: text/plain
+    ```
+    errormessage as plaintext
+    ```
