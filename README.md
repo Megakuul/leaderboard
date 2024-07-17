@@ -119,7 +119,7 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
 ```POST /api/addgame```
 
 **Headers**:
-  - **Authorization**: "Bearer access_token"
+  - **Authorization**: "Bearer id_token"
 
 **Body**:
   - ```json
@@ -146,12 +146,7 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
     }
     ```
   - **401**: text/plain
-    Provided access_token has expired or is invalid (catched by the API gateway).
-    ```
-    errormessage as plaintext
-    ```
-  - **403**: text/plain
-    Provided access_token does not contain required scopes (catched by the API gateway).
+    Provided id_token has expired or is invalid (catched by the API gateway).
     ```
     errormessage as plaintext
     ```

@@ -14,6 +14,7 @@ import (
 var (
 	REGION    = os.Getenv("REGION")
 	USERTABLE = os.Getenv("USERTABLE")
+	BASEELO   = os.Getenv("BASEELO")
 )
 
 func main() {

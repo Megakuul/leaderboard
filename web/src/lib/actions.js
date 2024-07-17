@@ -1,7 +1,7 @@
 import { RequestTokens } from "./auth";
 
 /**
- * @typedef {Object} User
+ * @typedef {Object} FetchResponseUser
  * @property {string} username
  * @property {string} title
  * @property {string} iconurl
@@ -12,7 +12,7 @@ import { RequestTokens } from "./auth";
  * @typedef {Object} FetchResponse
  * @property {string} message
  * @property {string} newpagekey
- * @property {User[]} users
+ * @property {FetchResponseUser[]} users
  */
 
 /**
@@ -41,10 +41,19 @@ export const Fetch = async (username="", elo="", lastpagekey="") => {
   }
 }
 
+/**
+ * @typedef {Object} UpdateResponseUser
+ * @property {string} username
+ * @property {string} title
+ * @property {string} email
+ * @property {string} iconurl
+ * @property {number} elo
+ */
 
 /**
  * @typedef {Object} UpdateResponse
  * @property {string} message
+ * @property {UpdateResponseUser} updated_user
  */
 
 /**
@@ -90,17 +99,17 @@ export const Update = async (idToken) => {
 /**
  * Adds a game based on the provided request.
  * https://github.com/Megakuul/leaderboard/blob/main/README.md#api
- * @param {string} accessToken 
+ * @param {string} idToken 
  * @param {AddGameRequest} request 
  * @returns {Promise<AddGameResponse>} if api call succeeds.
  * @throws {Error} if api call failed.
  */
-export const AddGame = async (accessToken, request) => {
+export const AddGame = async (idToken, request) => {
   const devUrl = import.meta.env.VITE_DEV_API_URL;
   const res = await fetch(`${devUrl?devUrl:""}/api/addgame`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`
+      Authorization: `Bearer ${idToken}`
     },
     body: JSON.stringify(request),
   })

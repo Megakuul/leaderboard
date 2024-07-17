@@ -12,6 +12,7 @@ import (
 func FetchByUsername(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, username string) ([]User, error) {
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
 		TableName: &tableName,
+		IndexName: aws.String("username_gsi"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":username": &types.AttributeValueMemberS{Value: username},
 		},

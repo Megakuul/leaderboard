@@ -60,6 +60,7 @@ Resources:
       AllowedOAuthScopes:
         - openid
         - profile
+        - email
       CallbackURLs:
         - !Sub "https://${LeaderboardDomain}"
 
@@ -173,26 +174,38 @@ Resources:
       TableName: leaderboard-users
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-          # username is used as base table partition key for efficient user queries.
-        - AttributeName: "username"
+          # subject is used as base table partition key because it is used for writes.
+          # updates on attributes can NOT use GSIs so they must use the subject as identifier.
+        - AttributeName: "subject"
           AttributeType: "S"
 
-          # unlike on the base table GSI does not require a unique primary key, therefore we can use the elo (non unique) here.
+          # username gsi is defined to perform quick lookups by username.
+        - AttributeName: "username"
+          AttributeType: "S"
+          # elo gsi is defined to perform quick lookups and sorts by elo.
+          # unlike on the base table, GSI does not require a unique primary key, therefore we can use the elo (non unique) here.
         - AttributeName: "elo"
           AttributeType: "N"
           # there is no need for a sort key as the partition key of the GSI is internally sorted
           # and we don't perform complex queries involving more then just one attribute.
       GlobalSecondaryIndexes:
-        IndexName: elo_gsi
-        KeySchema:
-          - AttributeName: "elo"
-            AttributeType: "HASH"
-        OnDemandThroughput:
-          MaxReadRequestUnits: !Ref MaxDatabaseRCU
-          MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+        - IndexName: username_gsi
+          KeySchema:
+            - AttributeName: "username"
+              AttributeType: "HASH"
+          OnDemandThroughput:
+            MaxReadRequestUnits: !Ref MaxDatabaseRCU
+            MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+        - IndexName: elo_gsi
+          KeySchema:
+            - AttributeName: "elo"
+              AttributeType: "HASH"
+          OnDemandThroughput:
+            MaxReadRequestUnits: !Ref MaxDatabaseRCU
+            MaxWriteRequestUnits: !Ref MaxDatabaseWCU
 
       KeySchema:
-        - AttributeName: "username"
+        - AttributeName: "subject"
           AttributeType: "HASH"
       OnDemandThroughput:
         MaxReadRequestUnits: !Ref MaxDatabaseRCU
@@ -300,6 +313,7 @@ Resources:
       Environment:
         Variables:
           USERTABLE: !Ref LeaderboardUserTable
+          BASEELO: "200"
       Policies:
         - DynamoDBWritePolicy:
             TableName: !Ref LeaderboardUserTable
