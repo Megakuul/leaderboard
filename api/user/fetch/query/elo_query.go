@@ -11,7 +11,7 @@ import (
 
 func FetchByElo(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, elo string) ([]User, error) {
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
-		TableName: &tableName,
+		TableName: aws.String(tableName),
 		IndexName: aws.String("elo_gsi"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":elo": &types.AttributeValueMemberS{Value: elo},

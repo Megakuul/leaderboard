@@ -3,19 +3,31 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-type UpdateResponse struct {
-	Message string `json:"message"`
+type Participant struct {
+	Username  string `json:"username"`
+	Points    int    `json:"points"`
+	Placement int    `json:"placement"`
 }
 
-func UpdateHandler(dynamoClient *dynamodb.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+type AddRequest struct {
+	Participants []Participant `dynamodbav:"participants" json:"participants"`
+}
+
+type AddResponse struct {
+	Message string `json:"message"`
+	GameId  string `json:"gameid"`
+}
+
+func AddHandler(dynamoClient *dynamodb.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-		response, code, err := runUpdatehandler(dynamoClient, &request, ctx)
+		response, code, err := runAddHandler(dynamoClient, &request, ctx)
 		if err != nil {
 			return events.APIGatewayV2HTTPResponse{
 				StatusCode: code,
@@ -39,6 +51,10 @@ func UpdateHandler(dynamoClient *dynamodb.Client) func(context.Context, events.A
 	}
 }
 
-func runUpdatehandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2HTTPRequest, ctx context.Context) (*UpdateResponse, int, error) {
+func runAddHandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2HTTPRequest, ctx context.Context) (*AddResponse, int, error) {
+	var req AddRequest
+	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to deserialize request: invalid body")
+	}
 
 }

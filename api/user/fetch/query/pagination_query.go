@@ -27,7 +27,7 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 	}
 
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
-		TableName:         &tableName,
+		TableName:         aws.String(tableName),
 		IndexName:         aws.String("elo_gsi"),
 		Limit:             aws.Int32(PAGESIZE),
 		ScanIndexForward:  aws.Bool(false),

@@ -13,7 +13,7 @@ import (
 
 var (
 	REGION    = os.Getenv("REGION")
-	USERTABLE = os.Getenv("USERTABLE")
+	GAMETABLE = os.Getenv("GAMETABLE")
 )
 
 func main() {
@@ -29,6 +29,6 @@ func run() error {
 	}
 	dynamoClient := dynamodb.NewFromConfig(awsConfig)
 
-	lambda.Start(UpdateHandler(dynamoClient))
+	lambda.Start(FetchHandler(dynamoClient))
 	return nil
 }

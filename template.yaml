@@ -221,14 +221,13 @@ Resources:
         - AttributeName: "gameid"
           AttributeType: "S"
 
-          # the timepoint attribute is used as part key for the gsi to ensure quick lookups to games based on the timepoint.
-        - AttributeName: "timepoint"
-          AttributeType: "N"
-          # there is no need for a sort key as the partition key of the GSI is internally sorted by default.
+          # date is used to query for multiple games based on a date.
+        - AttributeName: "date"
+          AttributeType: "S"
       GlobalSecondaryIndexes:
-        IndexName: timepoint_gsi
+        IndexName: date_gsi
         KeySchema:
-          - AttributeName: "timepoint"
+          - AttributeName: "date"
             AttributeType: "HASH"
         OnDemandThroughput:
           MaxReadRequestUnits: !Ref MaxDatabaseRCU
