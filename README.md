@@ -39,7 +39,14 @@ In the next step you need to deploy the web application:
    ```
 
 
-Finally add a dns entry pointing the application's domain to the CloudFront address (found in the SAM output).
+Then add a dns entry pointing the application's domain to the CloudFront address (found in the SAM output).
+
+
+In the last step, we need to configure the dns to support our SES (Simple Email Service) configuration. For this, you will need to set some dns entries on the application's domain:
+
+1. The `dmarc` entry is used to specify the behavior for `spf` and `dkim` failures. The recommended strict configuration is provided in the SAM output as `SPFEntries`. 
+2. The `spf` entry is used to specify which server is allowed to send mail from this domain. Here we set `include:amazonses.com` so that mail servers use the SPF configuration of SES (containing the respective ip's). The recommended strict configuration is provided in the SAM output as `SPFEntries`.
+3. The `dkim` records are required to verify the mail signature. `dkim` needs three different entries and is also serving the purpose of validating the applications' domain on SES. The required configuration is provided in the SAM output as `DKIMEntries`.
 
 
 ### Remove the system
