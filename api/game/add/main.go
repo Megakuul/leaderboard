@@ -21,6 +21,7 @@ var (
 	MAILSENDER            = os.Getenv("MAILSENDER")
 	CONFIRM_SECRET_LENGTH = 20 // default 20
 	HOURS_UNTIL_EXPIRED   = 24 // default 24
+	MAXIMUM_PARTICIPANTS  = 40 // default 40
 )
 
 func main() {
@@ -42,6 +43,9 @@ func run() error {
 	}
 	if hoursUntilExpired, err := strconv.Atoi(os.Getenv("HOURS_UNTIL_EXPIRED")); err == nil {
 		HOURS_UNTIL_EXPIRED = hoursUntilExpired
+	}
+	if maximumParticipants, err := strconv.Atoi(os.Getenv("MAXIMUM_PARTICIPANTS")); err != nil {
+		MAXIMUM_PARTICIPANTS = maximumParticipants
 	}
 
 	lambda.Start(AddHandler(dynamoClient, sesClient))

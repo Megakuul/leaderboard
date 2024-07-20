@@ -96,7 +96,7 @@ Resources:
             <p>To verify and accept these results, please click the button below:</p>
             
             <div style="text-align: start;">
-                <a href="https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&code={{secret}}" style="display: inline-block; background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Confirm Results</a>
+                <a href="https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&username={{username}}&code={{secret}}" style="display: inline-block; background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Confirm Results</a>
             </div>
             
             <p style="margin-top: 20px; font-size: 0.9em; color: #7f8c8d;">If you believe there's an error in these results, please contact the game organizer.</p>
@@ -110,7 +110,7 @@ Resources:
           Elo Rating Change: {{elo_update}}
           
           To verify and accept these results, please click the link below:
-          https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&code={{secret}}
+          https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&username={{username}}&code={{secret}}
 
           If you believe there's an error in these results, please contact the game organizer.
        
@@ -439,7 +439,36 @@ Resources:
               Action: 
                 - "ses:GetEmailTemplate"
               
-
+  LeaderboardGameConfirmFunc:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Buildmethod: go1.x
+    Properties:
+      CodeUri: api/game/confirm
+      Handler: confirm
+      Runtime: provided.al2023
+      Events:
+        FetchLeaderboard:
+          Type: HttpApi
+          Properties:
+            Path: /api/game/confirm
+            Method: GET
+            ApiId: !Ref LeaderboardApi
+            Auth:
+              Authorizer: NONE
+      Environment:
+        Variables:
+          USERTABLE: !Ref LeaderboardUserTable
+          GAMETABLE: !Ref LeaderboardGameTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref LeaderboardUserTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref LeaderboardUserTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref LeaderboardGameTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref LeaderboardGameTable
 
 
 Outputs:

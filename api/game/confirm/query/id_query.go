@@ -10,26 +10,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func FetchByUser(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, username string) (*UserOutput, error) {
+func FetchById(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, gameid string) (*GameOutput, error) {
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
 		TableName: aws.String(tableName),
-		IndexName: aws.String("username_gsi"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":username": &types.AttributeValueMemberS{Value: username},
+			":gameid": &types.AttributeValueMemberS{Value: gameid},
 		},
-		KeyConditionExpression: aws.String("username = :username"),
+		KeyConditionExpression: aws.String("gameid = :gameid"),
 		Limit:                  aws.Int32(1),
 	})
 	if err != nil {
 		return nil, err
 	}
-	var users []UserOutput
-	err = attributevalue.UnmarshalListOfMaps(output.Items, &users)
+	var games []GameOutput
+	err = attributevalue.UnmarshalListOfMaps(output.Items, &games)
 	if err != nil {
 		return nil, err
 	}
-	if len(users) < 1 {
-		return nil, fmt.Errorf("user not found")
+	if len(games) < 1 {
+		return nil, fmt.Errorf("game not found")
 	}
-	return &users[0], nil
+	return &games[0], nil
 }

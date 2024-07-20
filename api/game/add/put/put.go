@@ -27,10 +27,11 @@ type ParticipantInput struct {
 }
 
 type GameInput struct {
-	GameId      string             `dynamodbav:"gameid"`
-	Date        string             `dynamodbav:"date"`
-	ExpiresIn   int                `dynamodbav:"expires_in"`
-	Partcipants []ParticipantInput `dynamodbav:"participants"`
+	GameId      string                      `dynamodbav:"gameid"`
+	Date        string                      `dynamodbav:"date"`
+	ExpiresIn   int                         `dynamodbav:"expires_in"`
+	Readonly    bool                        `dynamodbav:"readonly"`
+	Partcipants map[string]ParticipantInput `dynamodbav:"participants"`
 }
 
 type ParticipantOutput struct {
@@ -43,16 +44,18 @@ type ParticipantOutput struct {
 }
 
 type GameOutput struct {
-	GameId       string              `dynamodbav:"gameid" json:"gameid"`
-	Date         string              `dynamodbav:"date" json:"date"`
-	ExpiresIn    int                 `dynamodbav:"expires_in" json:"expires_in"`
-	Participants []ParticipantOutput `dynamodbav:"participants" json:"participants"`
+	GameId      string                      `dynamodbav:"gameid" json:"gameid"`
+	Date        string                      `dynamodbav:"date" json:"date"`
+	Readonly    bool                        `dynamodbav:"readonly" json:"readonly"`
+	ExpiresIn   int                         `dynamodbav:"expires_in" json:"expires_in"`
+	Partcipants map[string]ParticipantInput `dynamodbav:"participants" json:"participants"`
 }
 
-func InsertGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, participants []ParticipantInput, expirationTime int) (*GameOutput, error) {
+func InsertGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, participants map[string]ParticipantInput, expirationTime int) (*GameOutput, error) {
 	gameInput := GameInput{
 		GameId:      uuid.New().String(),
 		Date:        time.Now().Format("2006-01-02"),
+		Readonly:    false,
 		ExpiresIn:   expirationTime,
 		Partcipants: participants,
 	}

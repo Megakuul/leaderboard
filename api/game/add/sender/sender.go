@@ -12,6 +12,7 @@ import (
 )
 
 type EmailConfirmRequest struct {
+	Username  string
 	Email     string
 	Secret    string
 	Placement int
@@ -21,6 +22,7 @@ type EmailConfirmRequest struct {
 
 type emailTemplateInput struct {
 	GameId    string `json:"gameid"`
+	Username  string `json:"username"`
 	Secret    string `json:"secret"`
 	Placement int    `json:"placement"`
 	Points    int    `json:"points"`
@@ -32,6 +34,7 @@ func SendConfirmMails(sesClient *sesv2.Client, ctx context.Context, senderMail, 
 	for _, request := range emailRequests {
 		templateInput := emailTemplateInput{
 			GameId:    gameId,
+			Username:  request.Username,
 			Secret:    request.Secret,
 			Placement: request.Placement,
 			Points:    request.Points,

@@ -65,9 +65,13 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to deserialize request: invalid body")
 	}
 
+	if len(req.Participants) > MAXIMUM_PARTICIPANTS {
+		return nil, http.StatusBadRequest, fmt.Errorf("maximum number of participants is %d", MAXIMUM_PARTICIPANTS)
+	}
+
 	ratingInputParticipants := []rating.ParticipantInput{}
 	for _, part := range req.Participants {
-		user, err := query.FetchByUser(dynamoClient, ctx, USERTABLE, part.Username)
+		user, err := query.FetchByUsername(dynamoClient, ctx, USERTABLE, part.Username)
 		if err != nil {
 			return nil, http.StatusNotFound, fmt.Errorf("failed to add game: %v", err)
 		}
@@ -81,7 +85,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 
 	ratingOutputParticipants := rating.CalculateRatingUpdate(ratingInputParticipants)
 
-	gameInputParticipants := []put.ParticipantInput{}
+	gameInputParticipants := map[string]put.ParticipantInput{}
 	emailConfirmRequests := []sender.EmailConfirmRequest{}
 
 	for _, part := range ratingOutputParticipants {
@@ -93,11 +97,15 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		base64Secret := base64.RawURLEncoding.EncodeToString(secret)
 
 		emailConfirmRequests = append(emailConfirmRequests, sender.EmailConfirmRequest{
-			Email:  part.UserRef.Email,
-			Secret: base64Secret,
+			Username:  part.UserRef.Username,
+			Email:     part.UserRef.Email,
+			Secret:    base64Secret,
+			Placement: part.Placement,
+			Points:    part.Points,
+			EloUpdate: part.RatingUpdate,
 		})
 
-		gameInputParticipants = append(gameInputParticipants, put.ParticipantInput{
+		gameInputParticipants[part.UserRef.Username] = put.ParticipantInput{
 			Subject:       part.UserRef.Subject,
 			Username:      part.UserRef.Username,
 			Placement:     part.Placement,
@@ -106,7 +114,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 			EloUpdate:     part.RatingUpdate,
 			Confirmed:     false,
 			ConfirmSecret: base64Secret,
-		})
+		}
 	}
 
 	expirationTime := time.Now().Add(time.Duration(HOURS_UNTIL_EXPIRED) * time.Hour)
