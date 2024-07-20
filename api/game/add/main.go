@@ -19,9 +19,11 @@ var (
 	GAMETABLE             = os.Getenv("GAMETABLE")
 	MAILTEMPLATE          = os.Getenv("MAILTEMPLATE")
 	MAILSENDER            = os.Getenv("MAILSENDER")
-	CONFIRM_SECRET_LENGTH = 20 // default 20
-	HOURS_UNTIL_EXPIRED   = 24 // default 24
-	MAXIMUM_PARTICIPANTS  = 40 // default 40
+	CONFIRM_SECRET_LENGTH = 20  // default 20
+	HOURS_UNTIL_EXPIRED   = 24  // default 24
+	MAXIMUM_PARTICIPANTS  = 40  // default 40
+	PLACEMENT_POINTS      = 100 // default 100
+	MAX_LOSS_NUMBER       = 40  // default 40
 )
 
 func main() {

@@ -83,7 +83,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		})
 	}
 
-	ratingOutputParticipants := rating.CalculateRatingUpdate(ratingInputParticipants)
+	ratingOutputParticipants := rating.CalculateRatingUpdate(ratingInputParticipants, PLACEMENT_POINTS, MAX_LOSS_NUMBER)
 
 	gameInputParticipants := map[string]put.ParticipantInput{}
 	emailConfirmRequests := []sender.EmailConfirmRequest{}
