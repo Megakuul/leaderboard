@@ -1,10 +1,11 @@
-// contains wrappers for fetch query functions.
+// contains wrappers for database query functions.
 // main purpose is to abstract some boilerplate code
 // away from the handler.
 package query
 
-type User struct {
+type UserOutput struct {
+	Subject  string `dynamodbav:"subject"`
 	Username string `dynamodbav:"username"`
-	Elo      string `dynamodbav:"elo"`
+	Elo      int    `dynamodbav:"elo"`
 	Email    string `dynamodbav:"email"`
 }

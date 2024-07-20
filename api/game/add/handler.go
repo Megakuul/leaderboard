@@ -2,12 +2,20 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
+	"github.com/megakuul/leaderboard/api/game/add/put"
+	"github.com/megakuul/leaderboard/api/game/add/query"
+	"github.com/megakuul/leaderboard/api/game/add/rating"
+	"github.com/megakuul/leaderboard/api/game/add/sender"
 )
 
 type Participant struct {
@@ -21,13 +29,13 @@ type AddRequest struct {
 }
 
 type AddResponse struct {
-	Message string `json:"message"`
-	GameId  string `json:"gameid"`
+	Message string         `json:"message"`
+	Game    put.GameOutput `json:"game"`
 }
 
-func AddHandler(dynamoClient *dynamodb.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func AddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	return func(ctx context.Context, request events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-		response, code, err := runAddHandler(dynamoClient, &request, ctx)
+		response, code, err := runAddHandler(dynamoClient, sesClient, &request, ctx)
 		if err != nil {
 			return events.APIGatewayV2HTTPResponse{
 				StatusCode: code,
@@ -51,10 +59,68 @@ func AddHandler(dynamoClient *dynamodb.Client) func(context.Context, events.APIG
 	}
 }
 
-func runAddHandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2HTTPRequest, ctx context.Context) (*AddResponse, int, error) {
+func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, request *events.APIGatewayV2HTTPRequest, ctx context.Context) (*AddResponse, int, error) {
 	var req AddRequest
 	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to deserialize request: invalid body")
 	}
 
+	ratingInputParticipants := []rating.ParticipantInput{}
+	for _, part := range req.Participants {
+		user, err := query.FetchByUser(dynamoClient, ctx, USERTABLE, part.Username)
+		if err != nil {
+			return nil, http.StatusNotFound, fmt.Errorf("failed to add game: %v", err)
+		}
+		ratingInputParticipants = append(ratingInputParticipants, rating.ParticipantInput{
+			UserRef:   user,
+			Rating:    user.Elo,
+			Points:    part.Points,
+			Placement: part.Placement,
+		})
+	}
+
+	ratingOutputParticipants := rating.CalculateRatingUpdate(ratingInputParticipants)
+
+	gameInputParticipants := []put.ParticipantInput{}
+	emailConfirmRequests := []sender.EmailConfirmRequest{}
+
+	for _, part := range ratingOutputParticipants {
+		secret := make([]byte, CONFIRM_SECRET_LENGTH)
+		_, err := rand.Read(secret)
+		if err != nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("failed to generate confirmation secret")
+		}
+		base64Secret := base64.RawURLEncoding.EncodeToString(secret)
+
+		emailConfirmRequests = append(emailConfirmRequests, sender.EmailConfirmRequest{
+			Email:  part.UserRef.Email,
+			Secret: base64Secret,
+		})
+
+		gameInputParticipants = append(gameInputParticipants, put.ParticipantInput{
+			Subject:       part.UserRef.Subject,
+			Username:      part.UserRef.Username,
+			Placement:     part.Placement,
+			Points:        part.Points,
+			Elo:           part.Rating,
+			EloUpdate:     part.RatingUpdate,
+			Confirmed:     false,
+			ConfirmSecret: base64Secret,
+		})
+	}
+
+	expirationTime := time.Now().Add(time.Duration(HOURS_UNTIL_EXPIRED) * time.Hour)
+	gameOutput, err := put.InsertGame(dynamoClient, ctx, GAMETABLE, gameInputParticipants, int(expirationTime.Unix()))
+	if err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to insert game: %v", err)
+	}
+
+	if err := sender.SendConfirmMails(sesClient, ctx, MAILSENDER, MAILTEMPLATE, gameOutput.GameId, emailConfirmRequests); err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to send at least one confirmation mail")
+	}
+
+	return &AddResponse{
+		Message: "successfully added game. ensure all players confirm the game to validate it",
+		Game:    *gameOutput,
+	}, http.StatusOK, nil
 }

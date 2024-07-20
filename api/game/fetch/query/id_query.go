@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func FetchByGameId(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, gameid string) ([]Game, error) {
+func FetchByGameId(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, gameid string) ([]GameOutput, error) {
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
 		TableName: aws.String(tableName),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
@@ -21,7 +21,7 @@ func FetchByGameId(dynamoClient *dynamodb.Client, ctx context.Context, tableName
 	if err != nil {
 		return nil, err
 	}
-	var games []Game
+	var games []GameOutput
 	err = attributevalue.UnmarshalListOfMaps(output.Items, &games)
 	if err != nil {
 		return nil, err

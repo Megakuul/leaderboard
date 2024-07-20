@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func FetchByDate(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, date string) ([]Game, error) {
+func FetchByDate(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, date string) ([]GameOutput, error) {
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
 		TableName: aws.String(tableName),
 		IndexName: aws.String("date_gsi"),
@@ -21,7 +21,7 @@ func FetchByDate(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 	if err != nil {
 		return nil, err
 	}
-	var games []Game
+	var games []GameOutput
 	err = attributevalue.UnmarshalListOfMaps(output.Items, &games)
 	if err != nil {
 		return nil, err

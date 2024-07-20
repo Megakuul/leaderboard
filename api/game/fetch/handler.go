@@ -12,8 +12,8 @@ import (
 )
 
 type FetchResponse struct {
-	Message string       `json:"message"`
-	Games   []query.Game `json:"games"`
+	Message string             `json:"message"`
+	Games   []query.GameOutput `json:"games"`
 }
 
 func FetchHandler(dynamoClient *dynamodb.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {

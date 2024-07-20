@@ -66,6 +66,58 @@ Resources:
 
 
   # ============================================
+  # =========== SES ============================
+  # ============================================
+
+
+  LeaderboardEmailIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref LeaderboardDomain
+
+  LeaderboardEmailTemplate:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      Template:
+        TemplateName: !Sub "${LeaderboardDomain}-confirmation-template"
+        SubjectPart: "Leaderboard Confirmation for Game {{gameid}}"
+        HtmlPart: !Sub |
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2c3e50;">Game {{gameid}} Results</h1>
+            
+            <p>You have been added to Game {{gameid}} by another player. Here are the reported results:</p>
+            
+            <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+                <p><strong>Placement:</strong> {{placement}}</p>
+                <p><strong>Points:</strong> {{points}}</p>
+                <p><strong>Elo Rating Change:</strong> {{elo_update}}</p>
+            </div>
+            
+            <p>To verify and accept these results, please click the button below:</p>
+            
+            <div style="text-align: start;">
+                <a href="https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&code={{secret}}" style="display: inline-block; background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Confirm Results</a>
+            </div>
+            
+            <p style="margin-top: 20px; font-size: 0.9em; color: #7f8c8d;">If you believe there's an error in these results, please contact the game organizer.</p>
+        </div>
+        TextPart: !Sub |
+          Game {{gameid}} Results
+
+          You have been added to Game {{gameid}} by another player. Here are the reported results:
+          Placement: {{placement}}
+          Points: {{points}}
+          Elo Rating Change: {{elo_update}}
+          
+          To verify and accept these results, please click the link below:
+          https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&code={{secret}}
+
+          If you believe there's an error in these results, please contact the game organizer.
+       
+
+
+
+  # ============================================
   # =========== CDN Proxy ======================
   # ============================================
 
@@ -360,6 +412,10 @@ Resources:
         Variables:
           USERTABLE: !Ref LeaderboardUserTable
           GAMETABLE: !Ref LeaderboardGameTable
+          MAILTEMPLATE: !Sub "${LeaderboardDomain}-confirmation-template"
+          MAILSENDER: !Sub "noreply@${LeaderboardDomain}"
+          CONFIRM_SECRET_LENGTH: 20
+          HOURS_UNTIL_EXPIRED: 24
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref LeaderboardUserTable
@@ -369,6 +425,20 @@ Resources:
             TableName: !Ref LeaderboardGameTable
         - DynamoDBWritePolicy:
             TableName: !Ref LeaderboardGameTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${LeaderboardDomain}"
+              Action: 
+                - "ses:SendBulkEmail"
+              Condition:
+                StringEquals:
+                  ses:FromAddress: "noreply@${LeaderboardDomain}"
+            - Effect: Allow
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/${LeaderboardDomain}-confirmation-template"
+              Action: 
+                - "ses:GetEmailTemplate"
+              
 
 
 
@@ -382,3 +452,18 @@ Outputs:
   WebBucket:
     Description: "Frontend host bucket name. Insert the Webapplication here."
     Value: !Ref LeaderboardWebBucket
+  DMARCEntries:
+    Description: "dmarc entry that must be set on the dns to specify how dkim and spf failures are handled"
+    Value: !Sub "_dmarc.${LeaderboardDomain} TXT v=DMARC1; p=reject; pct=100; adkim=s; aspf=s;"
+  DKIMEntries:
+    # DKIM Records are also used to verify the domain in SES: https://docs.aws.amazon.com/ko_kr/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html
+    Description: "dkim entries that must be set on the leaderboard domain (this is also used to verify the domain on SES)"
+    Value:
+      Fn::Join
+        - "\n"
+        - - !Sub "${LeaderboardEmailIdentity.DkimDNSTokenName1} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue1}"
+          - !Sub "${LeaderboardEmailIdentity.DkimDNSTokenName2} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue2}"
+          - !Sub "${LeaderboardEmailIdentity.DkimDNSTokenName3} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue3}"
+  SPFEntries:
+    Description: "spf entry that must be set on the leaderboard domain"
+    Value: !Sub "${LeaderboardDomain} TXT v=spf1 include:amazonses.com -all"

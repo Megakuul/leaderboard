@@ -3,7 +3,7 @@
 // dynamodb tools (indexes, etc.)
 package query
 
-type Participant struct {
+type ParticipantOutput struct {
 	Username  string `dynamodbav:"username" json:"username"`
 	Placement int    `dynamodbav:"placement" json:"placement"`
 	Points    int    `dynamodbav:"points" json:"points"`
@@ -12,8 +12,8 @@ type Participant struct {
 	Confirmed bool   `dynamodbav:"confirmed" json:"confirmed"`
 }
 
-type Game struct {
-	GameId       string        `dynamodbav:"gameid" json:"gameid"`
-	Date         string        `dynamodbav:"date" json:"date"`
-	Participants []Participant `dynamodbav:"participants" json:"participants"`
+type GameOutput struct {
+	GameId       string              `dynamodbav:"gameid" json:"gameid"`
+	Date         string              `dynamodbav:"date" json:"date"`
+	Participants []ParticipantOutput `dynamodbav:"participants" json:"participants"`
 }

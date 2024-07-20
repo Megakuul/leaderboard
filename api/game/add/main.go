@@ -5,16 +5,22 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/sesv2"
 )
 
 var (
-	REGION    = os.Getenv("REGION")
-	USERTABLE = os.Getenv("USERTABLE")
-	GAMETABLE = os.Getenv("GAMETABLE")
+	REGION                = os.Getenv("REGION")
+	USERTABLE             = os.Getenv("USERTABLE")
+	GAMETABLE             = os.Getenv("GAMETABLE")
+	MAILTEMPLATE          = os.Getenv("MAILTEMPLATE")
+	MAILSENDER            = os.Getenv("MAILSENDER")
+	CONFIRM_SECRET_LENGTH = 20 // default 20
+	HOURS_UNTIL_EXPIRED   = 24 // default 24
 )
 
 func main() {
@@ -29,7 +35,15 @@ func run() error {
 		return fmt.Errorf("failed to load aws config: %v", err)
 	}
 	dynamoClient := dynamodb.NewFromConfig(awsConfig)
+	sesClient := sesv2.NewFromConfig(awsConfig)
 
-	lambda.Start(AddHandler(dynamoClient))
+	if secretLength, err := strconv.Atoi(os.Getenv("CONFIRM_SECRET_LENGTH")); err == nil {
+		CONFIRM_SECRET_LENGTH = secretLength
+	}
+	if hoursUntilExpired, err := strconv.Atoi(os.Getenv("HOURS_UNTIL_EXPIRED")); err == nil {
+		HOURS_UNTIL_EXPIRED = hoursUntilExpired
+	}
+
+	lambda.Start(AddHandler(dynamoClient, sesClient))
 	return nil
 }

@@ -12,9 +12,9 @@ import (
 )
 
 type FetchResponse struct {
-	Message    string       `json:"message"`
-	NewPageKey string       `json:"newpagekey"`
-	Users      []query.User `json:"users"`
+	Message    string             `json:"message"`
+	NewPageKey string             `json:"newpagekey"`
+	Users      []query.UserOutput `json:"users"`
 }
 
 func FetchHandler(dynamoClient *dynamodb.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {

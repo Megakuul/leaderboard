@@ -16,7 +16,7 @@ const (
 	PAGESIZE = 100
 )
 
-func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, lastPageKey string) ([]User, string, error) {
+func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, lastPageKey string) ([]UserOutput, string, error) {
 	var pageKey map[string]types.AttributeValue = nil
 	if lastPageKey != "" {
 		var err error
@@ -36,7 +36,7 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 	if err != nil {
 		return nil, "", err
 	}
-	var users []User
+	var users []UserOutput
 	err = attributevalue.UnmarshalListOfMaps(output.Items, &users)
 	if err != nil {
 		return nil, "", err

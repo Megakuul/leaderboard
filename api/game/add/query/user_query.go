@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func FetchByUser(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, username string) (*User, error) {
+func FetchByUser(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, username string) (*UserOutput, error) {
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
 		TableName: aws.String(tableName),
 		IndexName: aws.String("username_gsi"),
@@ -23,7 +23,7 @@ func FetchByUser(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 	if err != nil {
 		return nil, err
 	}
-	var users []User
+	var users []UserOutput
 	err = attributevalue.UnmarshalListOfMaps(output.Items, &users)
 	if err != nil {
 		return nil, err
