@@ -15,31 +15,34 @@ import (
 
 type UserOutput struct {
 	Username string `dynamodbav:"username" json:"username"`
+	Region   string `dynamodbav:"region" json:"region"`
 	Title    string `dynamodbav:"title" json:"title"`
 	Email    string `dynamodbav:"email" json:"email"`
 	IconURL  string `dynamodbav:"iconurl" json:"iconurl"`
 	Elo      int    `dynamodbav:"elo" json:"elo"`
 }
 
-func UpsertUser(dynamoClient *dynamodb.Client, ctx context.Context, baseElo, tableName, sub string, claims map[string]string) (*UserOutput, error) {
+func UpsertUser(dynamoClient *dynamodb.Client, ctx context.Context, baseElo, tableName, subject, region string, claims map[string]string) (*UserOutput, error) {
 	output, err := dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]types.AttributeValue{
-			"subject": &types.AttributeValueMemberS{Value: sub},
+			"subject": &types.AttributeValueMemberS{Value: subject},
 		},
 		ExpressionAttributeNames: map[string]string{
 			"#username": "username",
 			"#title":    "title",
 			"#iconurl":  "iconurl",
 			"#email":    "email",
+			"#region":   "region",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":username": &types.AttributeValueMemberS{Value: claims["preferred_username"]},
 			":title":    &types.AttributeValueMemberS{Value: claims["nickname"]},
 			":iconurl":  &types.AttributeValueMemberS{Value: claims["picture"]},
 			":email":    &types.AttributeValueMemberS{Value: claims["email"]},
+			":region":   &types.AttributeValueMemberS{Value: region},
 		},
-		UpdateExpression: aws.String("SET #username = :username, #title = :title, #iconurl = :iconurl, #email = :email"),
+		UpdateExpression: aws.String("SET #username = :username, #title = :title, #iconurl = :iconurl, #email = :email, #region = :region"),
 		ReturnValues:     types.ReturnValueAllNew,
 	})
 	if err != nil {
@@ -51,7 +54,7 @@ func UpsertUser(dynamoClient *dynamodb.Client, ctx context.Context, baseElo, tab
 		output, err = dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 			TableName: aws.String(tableName),
 			Key: map[string]types.AttributeValue{
-				"subject": &types.AttributeValueMemberS{Value: sub},
+				"subject": &types.AttributeValueMemberS{Value: subject},
 			},
 			ExpressionAttributeNames: map[string]string{
 				"#elo": "elo",

@@ -16,21 +16,25 @@ For this first build the backend lambda functions:
 sam build
 ```
 
-Then deploy them to aws:
+Then we need to generate the `ACM` certificate for the application (important, the certificate must be in `us-east-1` regardless of your region). This can be done via the AWS ACM dashboard or via cli:
 ```bash
-sam deploy --parameters-overrides CognitoDomainPrefix=example LeaderboardDomain=example.com
+CERT_ARN=$(aws acm request-certificate --region us-east-1 --domain-name example.com --validation-method DNS --query 'CertificateArn' --output text)
+aws acm describe-certificate --region us-east-1 --certificate-arn $CERT_ARN --query 'Certificate.DomainValidationOptions[0].ResourceRecord'
 ```
+(the values provided by the ResourceRecord output must be entered in your dns console to validate the domain)
 
-This initiates the CloudFormation stack. If the specified domain isn't hosted on your AWS account within Route53, manually add the dns validation entries using the cname provided on the `ACM` dashboard.
 
-Note: The stack remains in `CREATE_IN_PROGRESS` state until certificate creation completes (-> has been validated).
+After validation of the certificate, deploy the system to aws and provide the cert-arn obtained in the previous step as parameter:
+```bash
+sam deploy --parameter-overrides CognitoDomainPrefix=example LeaderboardDomain=example.com LeaderboardDomainCertificateArn=$CERT_ARN
+```
 
 In the next step you need to deploy the web application:
 
-1. Build the sveltekit static files (it uses static-adapter to generate prerendered html pages):
+1. Build the svelte application and specify the build environment variables like described in `.env.example`. You can find the required values for cognito in the `SAM` output.
    ```bash
    cd web
-   npm run build
+   VITE_COGNITO_DOMAIN=<CognitoEndpoint> VITE_COGNITO_CLIENT_ID=<CognitoClientID> VITE_LEADERBOARD_REGIONS=<DeploymentRegion> npm run build
    ```
 
 2. Upload to the S3 bucket (bucket name is provided in SAM output):
@@ -51,6 +55,15 @@ In the last step, we need to configure the dns to support our SES (Simple Email 
 
 ### Remove the system
 
+You can delete the system from your aws account with:
+```bash
+sam delete --stack-name leaderboard
+```
+
+The certificate can be revoked with:
+```bash
+aws acm delete-certificate --region us-east-1 --certificate-arn $CERT_ARN
+```
 
 
 ### Authentication
@@ -61,20 +74,34 @@ Authentication is managed through Cognito using the OAuth2 implicit flow. To acc
 The implicit OAuth2 flow is not considered very secure for various reasons, use the code flow instead as implemented in [battleshiper](https://github.com/megakuul/battleshiper). This application does only use the implicit flow for simplicity and because I was too lazy to implement the code flow backend.
 
 
+### Future outlook
+
+In the future, this leaderboard system could be extended to work multi-regional. This would require the following adjustments:
+
+- Update dynamodb tables to global tables and deploy them in multiple regions.
+- Extract api gateway and lambda code into separate templates to make them deployable in multiple regions.
+- Create s3 bucket replication policies to replicate the frontend to multiple regions.
+- Create global accelerator between cloudfront and the api gateways / s3 buckets.
+
+(this setup will, however, be more expensive to operate on a small scale)
+
+
 ### API
 ---
 
 The leaderboard api runs on top of lambda functions behind an api-gateway. For simplicity every route uses its own lambda function.
 
 
-```GET /api/fetch```
 
-**Params**: 
-  - **username**: fetches entries queried by the provided username. only applies if previous pagination params are unset.
-  - **elo**: fetches entries queried by the provided elo. only applies if previous pagination params are unset.
-  - **lastpagekey**: fetches the next page of sorted entries using a base64-encoded json "LastEvaluatedKey" from dynamodb. only applies if previous pagination params are unset.
+```GET /api/user/fetch```
+Fetches users from the leaderboard.
 
-  - **noparam**: if no parameter is set, fetches the first page sorted desc by elo.
+**Params**:
+  - **username**: fetches entries queried by the provided username over all regions. 
+  - **elo**: fetches one page of entries starting on the provided elo. only applies if username is not set.
+  - **lastpagekey**: fetches the next page of sorted entries (sorted by elo) by region using a base64-encoded json "LastEvaluatedKey" from dynamodb. defaults to "" which returns the first page.
+  - **region**: specifies the region from where to fetch the entries. defaults to the region where the called function operates in.
+  - **pagesize**: specifies the size of the page for pagination requests. defaults to the maximum page size.
 
 **Returns**:
 
@@ -86,6 +113,7 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
       "users": [
         {
           "username": "Wendelin Knack",
+          "region": "eu-central-1",
           "title": "Wendig",
           "iconurl": "https://urltoicon",
           "elo": 420
@@ -99,7 +127,10 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
     ```
 
 
-```POST /api/update```
+
+```POST /api/user/update```
+Updates the leaderboard user based on the data from the identity-provider (cognito).
+The region is updated based on the aws region of the called function.
 
 **Headers**:
   - **Authorization**: "Bearer id_token"
@@ -110,6 +141,14 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
     ```json
     {
       "message": "success message xy",
+      "updated_user": {
+        "username": "Wendelin Knack",
+        "region": "eu-central-1",
+        "title": "Wendig",
+        "email": "wendelin@panzerknacker.org",
+        "iconurl": "https://urltoicon",
+        "elo": 420
+      }
     }
     ```
   - **401**: text/plain
@@ -123,7 +162,58 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
     ```
 
 
-```POST /api/addgame```
+
+```GET /api/game/fetch```
+Fetches played games.
+
+**Params**: 
+  - **gameid**: fetches games based on the gameid.
+  - **date**: fetches games based on the date. only applies if previous params are unset.
+
+**Returns**:
+
+  - **200**: application/json
+    ```json
+    {
+      "message": "success message xy",
+      "games": [
+        {
+          "gameid": "550e8400-e29b-11d4-a716-446655440000",
+          "date": "2006-01-02",
+          "readonly": true,
+          "participants": [
+            {
+              "username": "Panzerknacker",
+              "team": 2,
+              "placement": 2,
+              "points": 130,
+              "elo": 250,
+              "elo_update": -10,
+              "confirmed": true
+            },
+            {
+              "username": "Kater Karlo",
+              "team": 1,
+              "placement": 1,
+              "points": 160,
+              "elo": 200,
+              "elo_update": 20,
+              "confirmed": true
+            },
+          ]
+        }
+      ]
+    }
+    ```
+  - **400-500**: text/plain
+    ```
+    errormessage as plaintext
+    ```
+
+
+
+```POST /api/game/add```
+Adds a game to the leaderboard.
 
 **Headers**:
   - **Authorization**: "Bearer id_token"
@@ -131,14 +221,19 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
 **Body**:
   - ```json
     {
-      "results": [
+      "placement_points": 100,
+      "participants": [
         {
           "username": "Kater Karlo",
-          "placement": 1
+          "team": 1,
+          "placement": 1,
+          "points": 160
         },
         {
           "username": "Panzerknacker",
-          "placement": 2
+          "team": 2,
+          "placement": 2,
+          "points": 130
         }
       ]
     }
@@ -150,12 +245,59 @@ The leaderboard api runs on top of lambda functions behind an api-gateway. For s
     ```json
     {
       "message": "success message xy",
+      "game": {
+        "gameid": "550e8400-e29b-11d4-a716-446655440000",
+        "date": "2006-01-02",
+        "readonly": false,
+        "expires_in": 1721550651,
+        "participants": [
+          {
+            "username": "Panzerknacker",
+            "team": 2,
+            "placement": 2,
+            "points": 130,
+            "elo": 250,
+            "elo_update": -10,
+            "confirmed": false
+          },
+          {
+            "username": "Kater Karlo",
+            "team": 1,
+            "placement": 1,
+            "points": 160,
+            "elo": 200,
+            "elo_update": 20,
+            "confirmed": true
+          },
+        ]
+      }
     }
     ```
   - **401**: text/plain
     Provided id_token has expired or is invalid (catched by the API gateway).
     ```
     errormessage as plaintext
+    ```
+  - **400-500**: text/plain
+    ```
+    errormessage as plaintext
+    ```
+
+
+
+```GET /api/game/confirm```
+Lets a user confirm the specified game. If all users confirmed the game, this will also finish the game and distribute the elo to all players.
+
+**Params**: 
+  - **gameid**: specifies the game by id. parameter is required.
+  - **username**: identifies the user to confirm by username. parameter is required.
+  - **code**: specifies the confirm secret that authorizes the user to confirm. parameter is required.
+
+**Returns**:
+
+  - **200**: text/plain
+    ```json
+    successmessage as plaintext
     ```
   - **400-500**: text/plain
     ```

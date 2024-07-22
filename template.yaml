@@ -8,12 +8,13 @@ Description: >
 Parameters:
   CognitoDomainPrefix:
     Type: String
-    Default: "leaderboard"
-    Description: "Domain prefix where the leaderboard cognito provider is hosted on."
+    Description: "Domain prefix where the leaderboard cognito provider is hosted on. This must be globally unique."
   LeaderboardDomain:
     Type: String
-    Default: "leaderboard.megakuul.ch"
     Description: "Domain where the application (api & frontend) is hosted on."
+  LeaderboardDomainCertificateArn:
+    Type: String
+    Description: "ARN of the ACM certificate for the LeaderboardDomain."
   MaxDatabaseRCU:
     Type: Number
     Default: 100 # Set to -1 to not use any maximum (applicable if you only fear god)
@@ -25,7 +26,7 @@ Parameters:
 
 Globals:
   Function:
-    Timeout: 2
+    Timeout: 5
 
 Resources:
   # Using ugly separator comments because cloudformation is dogwater:
@@ -36,12 +37,18 @@ Resources:
 
   LeaderboardCognitoUserPool:
     Type: AWS::Cognito::UserPool
+    # Change this to Retain if you want to keep the user data after deleting the stack.
+    DeletionPolicy: Delete
     Properties:
       UserPoolName: "leaderboard-auth-pool"
       Policies:
         PasswordPolicy:
           MinimumLength: 8
-      MfaConfiguration: OPTIONAL
+      AutoVerifiedAttributes:
+        - email
+      EnabledMfas:
+        - "SOFTWARE_TOKEN_MFA"
+      MfaConfiguration: "ON"
   
   LeaderboardCognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -56,7 +63,8 @@ Resources:
       ClientName: "leaderboard-auth-client"
       GenerateSecret: false
       AllowedOAuthFlowsUserPoolClient: true
-      AllowedOAuthFlows: implicit
+      AllowedOAuthFlows: 
+        - "implicit"
       AllowedOAuthScopes:
         - openid
         - profile
@@ -76,10 +84,10 @@ Resources:
       EmailIdentity: !Ref LeaderboardDomain
 
   LeaderboardEmailTemplate:
-    Type: AWS::SES::EmailIdentity
+    Type: AWS::SES::Template
     Properties:
       Template:
-        TemplateName: !Sub "${LeaderboardDomain}-confirmation-template"
+        TemplateName: !Sub "leaderboard-confirmation-template"
         SubjectPart: "Leaderboard Confirmation for Game {{gameid}}"
         HtmlPart: !Sub |
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -100,7 +108,7 @@ Resources:
             </div>
             
             <p style="margin-top: 20px; font-size: 0.9em; color: #7f8c8d;">If you believe there's an error in these results, please contact the game organizer.</p>
-        </div>
+          </div>
         TextPart: !Sub |
           Game {{gameid}} Results
 
@@ -121,16 +129,6 @@ Resources:
   # =========== CDN Proxy ======================
   # ============================================
 
-
-  LeaderboardCertificate:
-    Type: AWS::CertificateManager::Certificate
-    Properties:
-      DomainName: !Ref LeaderboardDomain
-      ValidationMethod: "DNS"
-      DomainValidationOption:
-        - DomainName: !Ref LeaderboardDomain
-          ValidationDomain: !Ref LeaderboardDomain
-
   LeaderboardCDNOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -140,6 +138,43 @@ Resources:
         SigningBehavior: always
         SigningProtocol: sigv4
 
+  LeaderboardCDNWebCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: "leaderboard-web-cache-policy"
+        DefaultTTL: 86400 # 1 day
+        MinTTL: 1 # 1 second
+        MaxTTL: 31536000 # 1 year
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: "none"
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  LeaderboardCDNApiCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: "leaderboard-api-cache-policy"
+        DefaultTTL: 0
+        MinTTL: 0
+        MaxTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: "none"
+          EnableAcceptEncodingBrotli: false
+          EnableAcceptEncodingGzip: false
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+
   LeaderboardCDN:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -147,7 +182,7 @@ Resources:
         Enabled: true
         PriceClass: "PriceClass_All"
         ViewerCertificate:
-          AcmCertificateArn: !Ref LeaderboardCertificate
+          AcmCertificateArn: !Ref LeaderboardDomainCertificateArn
           SslSupportMethod: "sni-only"
           MinimumProtocolVersion: "TLSv1.2_2021"
         Origins:
@@ -156,7 +191,8 @@ Resources:
             OriginAccessControlId: !GetAtt LeaderboardCDNOriginAccessControl.Id
             S3OriginConfig: {}
           - Id: "leaderboard-api-gateway"
-            DomainName: !Ref LeaderboardDomain
+            # ApiEndpoint includes https:// which is trimmed of by splitting and selectin the 3 element (index 2)
+            DomainName: !Select [2, !Split ["/", !Sub "${LeaderboardApi.ApiEndpoint}"]]
             CustomOriginConfig:
               OriginProtocolPolicy: "https-only"
         DefaultCacheBehavior:
@@ -164,18 +200,26 @@ Resources:
           AllowedMethods:
             - GET
             - HEAD
-          CacheMethods:
+          CachedMethods:
             - GET
             - HEAD
           ViewerProtocolPolicy: "redirect-to-https"
+          CachePolicyId: !Ref LeaderboardCDNWebCachePolicy
+
         CacheBehaviors:
           - PathPattern: "/api/*"
             TargetOriginId: "leaderboard-api-gateway"
             AllowedMethods:
               - GET
               - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
             Compress: false
             ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: !Ref LeaderboardCDNApiCachePolicy
         Aliases:
           - !Ref LeaderboardDomain
       Tags:
@@ -222,6 +266,8 @@ Resources:
 
   LeaderboardUserTable:
     Type: AWS::DynamoDB::Table
+    # Change this to Retain if you want to keep the user data after deleting the stack.
+    DeletionPolicy: Delete
     Properties:
       TableName: leaderboard-users
       BillingMode: PAY_PER_REQUEST
@@ -234,37 +280,54 @@ Resources:
           # username gsi is defined to perform quick lookups by username.
         - AttributeName: "username"
           AttributeType: "S"
-          # elo gsi is defined to perform quick lookups and sorts by elo.
+          # elo gsi is defined to perform quick lookups by elo.
           # unlike on the base table, GSI does not require a unique primary key, therefore we can use the elo (non unique) here.
         - AttributeName: "elo"
           AttributeType: "N"
-          # there is no need for a sort key as the partition key of the GSI is internally sorted
-          # and we don't perform complex queries involving more then just one attribute.
+
+          # region is used as a partition key for the sorted core leaderboard.
+          # as long as this doesn't operate multi-regional, this is more like a dummy value.
+          # the reason it is used, is because dynamodb does not allow us to perform sorted queries over multiple partition keys.
+          # the region workaround lets us use it as part key using a LSI to sort the entries.
+          # using such a part key can cause a "hot"-partition which in that case is inevitable. 
+          # to scale it the leaderboard can be split up into "regions" to distribute it across regions.
+          # this is fine but not optimal (below 200'000 entries per region this should have a very well read performance).
+          # for a large scaled application that requires sorted queries over all items, consider not using dynamodb.
+        - AttributeName: "region"
+          AttributeType: "S"
       GlobalSecondaryIndexes:
         - IndexName: username_gsi
           KeySchema:
             - AttributeName: "username"
-              AttributeType: "HASH"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: ALL
           OnDemandThroughput:
             MaxReadRequestUnits: !Ref MaxDatabaseRCU
             MaxWriteRequestUnits: !Ref MaxDatabaseWCU
-        - IndexName: elo_gsi
+        - IndexName: region_gsi
           KeySchema:
+            - AttributeName: "region"
+              KeyType: "HASH"
             - AttributeName: "elo"
-              AttributeType: "HASH"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: ALL
           OnDemandThroughput:
             MaxReadRequestUnits: !Ref MaxDatabaseRCU
             MaxWriteRequestUnits: !Ref MaxDatabaseWCU
 
       KeySchema:
         - AttributeName: "subject"
-          AttributeType: "HASH"
+          KeyType: "HASH"
       OnDemandThroughput:
         MaxReadRequestUnits: !Ref MaxDatabaseRCU
         MaxWriteRequestUnits: !Ref MaxDatabaseWCU
 
   LeaderboardGameTable:
     Type: AWS::DynamoDB::Table
+    # Change this to Retain if you want to keep the user data after deleting the stack.
+    DeletionPolicy: Delete
     Properties:
       TableName: leaderboard-games
       BillingMode: PAY_PER_REQUEST
@@ -277,20 +340,22 @@ Resources:
         - AttributeName: "date"
           AttributeType: "S"
       GlobalSecondaryIndexes:
-        IndexName: date_gsi
-        KeySchema:
-          - AttributeName: "date"
-            AttributeType: "HASH"
-        OnDemandThroughput:
-          MaxReadRequestUnits: !Ref MaxDatabaseRCU
-          MaxWriteRequestUnits: !Ref MaxDatabaseWCU
+        - IndexName: date_gsi
+          KeySchema:
+            - AttributeName: "date"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: ALL
+          OnDemandThroughput:
+            MaxReadRequestUnits: !Ref MaxDatabaseRCU
+            MaxWriteRequestUnits: !Ref MaxDatabaseWCU
 
       TimeToLiveSpecification:
         AttributeName: "expires_in"
         Enabled: true
       KeySchema:
         - AttributeName: "gameid"
-          AttributeType: "HASH"
+          KeyType: "HASH"
       OnDemandThroughput:
         MaxReadRequestUnits: !Ref MaxDatabaseRCU
         MaxWriteRequestUnits: !Ref MaxDatabaseWCU
@@ -304,10 +369,6 @@ Resources:
   LeaderboardApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Domain:
-        CertificateArn: !Ref LeaderboardCertificate
-        DomainName: !Ref LeaderboardDomain
-
       Auth:
         Authorizers:
           OAuth2Authorizer:
@@ -320,16 +381,17 @@ Resources:
                 - !Ref LeaderboardCognitoUserPool
 
         DefaultAuthorizer: OAuth2Authorizer
-      StageName: Prod
 
   LeaderboardUserFetchFunc:
     Type: AWS::Serverless::Function
     Metadata:
-      Buildmethod: go1.x
+      BuildMethod: go1.x
     Properties:
       CodeUri: api/user/fetch
       Handler: fetch
       Runtime: provided.al2023
+      Architectures:
+        - x86_64
       Events:
         FetchLeaderboard:
           Type: HttpApi
@@ -349,7 +411,7 @@ Resources:
   LeaderboardUserUpdateFunc:
     Type: AWS::Serverless::Function
     Metadata:
-      Buildmethod: go1.x
+      BuildMethod: go1.x
     Properties:
       CodeUri: api/user/update
       Handler: update
@@ -372,7 +434,7 @@ Resources:
   LeaderboardGameFetchFunc:
     Type: AWS::Serverless::Function
     Metadata:
-      Buildmethod: go1.x
+      BuildMethod: go1.x
     Properties:
       CodeUri: api/game/fetch
       Handler: fetchgame
@@ -396,7 +458,7 @@ Resources:
   LeaderboardGameAddFunc:
     Type: AWS::Serverless::Function
     Metadata:
-      Buildmethod: go1.x
+      BuildMethod: go1.x
     Properties:
       CodeUri: api/game/add
       Handler: add
@@ -412,10 +474,11 @@ Resources:
         Variables:
           USERTABLE: !Ref LeaderboardUserTable
           GAMETABLE: !Ref LeaderboardGameTable
-          MAILTEMPLATE: !Sub "${LeaderboardDomain}-confirmation-template"
+          MAILTEMPLATE: !Sub "leaderboard-confirmation-template"
           MAILSENDER: !Sub "noreply@${LeaderboardDomain}"
           CONFIRM_SECRET_LENGTH: 20
           HOURS_UNTIL_EXPIRED: 24
+          MAX_LOSS_NUMBER: 40
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref LeaderboardUserTable
@@ -442,7 +505,7 @@ Resources:
   LeaderboardGameConfirmFunc:
     Type: AWS::Serverless::Function
     Metadata:
-      Buildmethod: go1.x
+      BuildMethod: go1.x
     Properties:
       CodeUri: api/game/confirm
       Handler: confirm
@@ -472,15 +535,24 @@ Resources:
 
 
 Outputs:
+  DeploymentRegion:
+    Description: "Region where the system was deployed."
+    Value: !Sub "${AWS::Region}"
+  CDNEndpoint:
+    Description: "CloudFront CDN endpoint."
+    Value: !Sub "${LeaderboardCDN.DomainName}"
+  WebBucket:
+    Description: "Frontend host bucket name. Insert the Webapplication here."
+    Value: !Ref LeaderboardWebBucket
   CognitoEndpoint:
     Description: "Cognito frontend endpoint. Provide this url to the frontend."
     Value: !GetAtt LeaderboardCognitoUserPool.ProviderURL
   CognitoClientID:
     Description: "Cognito client ID. Provide this id to the frontend."
     Value: !GetAtt LeaderboardCognitoUserPoolClient.ClientId
-  WebBucket:
-    Description: "Frontend host bucket name. Insert the Webapplication here."
-    Value: !Ref LeaderboardWebBucket
+  CNameEntries:
+    Description: "cname entry that must be set on the dns to correctly resolve the frontend & api endpoint"
+    Value: !Sub "${LeaderboardDomain} CNAME ${LeaderboardCDN.DomainName}"
   DMARCEntries:
     Description: "dmarc entry that must be set on the dns to specify how dkim and spf failures are handled"
     Value: !Sub "_dmarc.${LeaderboardDomain} TXT v=DMARC1; p=reject; pct=100; adkim=s; aspf=s;"
@@ -488,11 +560,12 @@ Outputs:
     # DKIM Records are also used to verify the domain in SES: https://docs.aws.amazon.com/ko_kr/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html
     Description: "dkim entries that must be set on the leaderboard domain (this is also used to verify the domain on SES)"
     Value:
-      Fn::Join
+      Fn::Join:
         - "\n"
-        - - !Sub "${LeaderboardEmailIdentity.DkimDNSTokenName1} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue1}"
-          - !Sub "${LeaderboardEmailIdentity.DkimDNSTokenName2} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue2}"
-          - !Sub "${LeaderboardEmailIdentity.DkimDNSTokenName3} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue3}"
+        - - ""
+          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName1} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue1}"
+          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName2} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue2}"
+          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName3} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue3}"
   SPFEntries:
     Description: "spf entry that must be set on the leaderboard domain"
     Value: !Sub "${LeaderboardDomain} TXT v=spf1 include:amazonses.com -all"

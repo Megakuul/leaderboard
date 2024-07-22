@@ -49,7 +49,7 @@ func runUpdatehandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV
 		return nil, http.StatusUnprocessableEntity, fmt.Errorf("invalid sub claim in the ID token")
 	}
 
-	user, err := update.UpsertUser(dynamoClient, ctx, BASEELO, USERTABLE, sub, request.RequestContext.Authorizer.JWT.Claims)
+	user, err := update.UpsertUser(dynamoClient, ctx, BASEELO, USERTABLE, sub, REGION, request.RequestContext.Authorizer.JWT.Claims)
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to upsert user: %v", err)
 	}

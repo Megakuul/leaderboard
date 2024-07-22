@@ -20,12 +20,14 @@ import (
 
 type Participant struct {
 	Username  string `json:"username"`
+	Team      int    `json:"team"`
 	Points    int    `json:"points"`
 	Placement int    `json:"placement"`
 }
 
 type AddRequest struct {
-	Participants []Participant `dynamodbav:"participants" json:"participants"`
+	PlacementPoints int           `json:"placement_points"`
+	Participants    []Participant `dynamodbav:"participants" json:"participants"`
 }
 
 type AddResponse struct {
@@ -83,7 +85,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		})
 	}
 
-	ratingOutputParticipants := rating.CalculateRatingUpdate(ratingInputParticipants, PLACEMENT_POINTS, MAX_LOSS_NUMBER)
+	ratingOutputParticipants := rating.CalculateRatingUpdate(ratingInputParticipants, req.PlacementPoints, MAX_LOSS_NUMBER)
 
 	gameInputParticipants := map[string]put.ParticipantInput{}
 	emailConfirmRequests := []sender.EmailConfirmRequest{}
@@ -108,6 +110,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		gameInputParticipants[part.UserRef.Username] = put.ParticipantInput{
 			Subject:       part.UserRef.Subject,
 			Username:      part.UserRef.Username,
+			Team:          part.Team,
 			Placement:     part.Placement,
 			Points:        part.Points,
 			Elo:           part.Rating,

@@ -19,11 +19,10 @@ var (
 	GAMETABLE             = os.Getenv("GAMETABLE")
 	MAILTEMPLATE          = os.Getenv("MAILTEMPLATE")
 	MAILSENDER            = os.Getenv("MAILSENDER")
-	CONFIRM_SECRET_LENGTH = 20  // default 20
-	HOURS_UNTIL_EXPIRED   = 24  // default 24
-	MAXIMUM_PARTICIPANTS  = 40  // default 40
-	PLACEMENT_POINTS      = 100 // default 100
-	MAX_LOSS_NUMBER       = 40  // default 40
+	CONFIRM_SECRET_LENGTH = 20 // default 20
+	HOURS_UNTIL_EXPIRED   = 24 // default 24
+	MAXIMUM_PARTICIPANTS  = 40 // default 40
+	MAX_LOSS_NUMBER       = 40 // default 40
 )
 
 func main() {
@@ -48,6 +47,9 @@ func run() error {
 	}
 	if maximumParticipants, err := strconv.Atoi(os.Getenv("MAXIMUM_PARTICIPANTS")); err != nil {
 		MAXIMUM_PARTICIPANTS = maximumParticipants
+	}
+	if maxLossNumber, err := strconv.Atoi(os.Getenv("MAX_LOSS_NUMBER")); err != nil {
+		MAX_LOSS_NUMBER = maxLossNumber
 	}
 
 	lambda.Start(AddHandler(dynamoClient, sesClient))

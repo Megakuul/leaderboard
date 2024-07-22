@@ -12,11 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-const (
-	PAGESIZE = 100
-)
+func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, pageSize int32, lastPageKey, region string) ([]UserOutput, string, error) {
+	if pageSize > MAX_PAGESIZE {
+		pageSize = MAX_PAGESIZE
+	}
 
-func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, lastPageKey string) ([]UserOutput, string, error) {
 	var pageKey map[string]types.AttributeValue = nil
 	if lastPageKey != "" {
 		var err error
@@ -27,11 +27,18 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 	}
 
 	output, err := dynamoClient.Query(ctx, &dynamodb.QueryInput{
-		TableName:         aws.String(tableName),
-		IndexName:         aws.String("elo_gsi"),
-		Limit:             aws.Int32(PAGESIZE),
-		ScanIndexForward:  aws.Bool(false),
-		ExclusiveStartKey: pageKey,
+		TableName: aws.String(tableName),
+		IndexName: aws.String("region_gsi"),
+		ExpressionAttributeNames: map[string]string{
+			"#region": "region",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":region": &types.AttributeValueMemberS{Value: region},
+		},
+		KeyConditionExpression: aws.String("region = :region"),
+		Limit:                  aws.Int32(pageSize),
+		ScanIndexForward:       aws.Bool(true),
+		ExclusiveStartKey:      pageKey,
 	})
 	if err != nil {
 		return nil, "", err

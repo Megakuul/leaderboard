@@ -18,6 +18,7 @@ import (
 type ParticipantInput struct {
 	Subject       string `dynamodbav:"subject"`
 	Username      string `dynamodbav:"username"`
+	Team          int    `dynamodbav:"team"`
 	Placement     int    `dynamodbav:"placement"`
 	Points        int    `dynamodbav:"points"`
 	Elo           int    `dynamodbav:"elo"`

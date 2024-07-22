@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -44,8 +45,24 @@ func FetchHandler(dynamoClient *dynamodb.Client) func(context.Context, events.AP
 }
 
 func runFetchHandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2HTTPRequest, ctx context.Context) (*FetchResponse, int, error) {
-	username, ok := request.QueryStringParameters["username"]
-	if ok && username != "" {
+	region := request.QueryStringParameters["region"]
+	if region != "" {
+		region = REGION
+	}
+
+	pageSizeStr := request.QueryStringParameters["pagesize"]
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil {
+		pageSize = query.MAX_PAGESIZE
+	}
+
+	lastPageKey, ok := request.QueryStringParameters["lastpagekey"]
+	if !ok {
+		lastPageKey = ""
+	}
+
+	username := request.QueryStringParameters["username"]
+	if username != "" {
 		users, err := query.FetchByUsername(dynamoClient, ctx, USERTABLE, username)
 		if err != nil {
 			return nil, http.StatusNotFound, fmt.Errorf("failed to fetch data by username: %v", err)
@@ -55,9 +72,10 @@ func runFetchHandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2
 			Users:   users,
 		}, http.StatusOK, nil
 	}
-	elo, ok := request.QueryStringParameters["elo"]
-	if ok && elo != "" {
-		users, err := query.FetchByElo(dynamoClient, ctx, USERTABLE, elo)
+
+	elo := request.QueryStringParameters["elo"]
+	if elo != "" {
+		users, err := query.FetchByElo(dynamoClient, ctx, USERTABLE, int32(pageSize), region, elo)
 		if err != nil {
 			return nil, http.StatusNotFound, fmt.Errorf("failed to fetch data by elo: %v", err)
 		}
@@ -66,16 +84,14 @@ func runFetchHandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2
 			Users:   users,
 		}, http.StatusOK, nil
 	}
-	lastPageKey, ok := request.QueryStringParameters["lastpagekey"]
-	if !ok {
-		lastPageKey = ""
-	}
-	users, newPageKey, err := query.FetchByPage(dynamoClient, ctx, USERTABLE, lastPageKey)
+
+	users, newPageKey, err := query.FetchByPage(dynamoClient, ctx, USERTABLE, int32(pageSize), lastPageKey, region)
 	if err != nil {
-		return nil, http.StatusNotFound, fmt.Errorf("failed to fetch data by elo: %v", err)
+		return nil, http.StatusNotFound, fmt.Errorf("failed to fetch data by page: %v", err)
 	}
+
 	return &FetchResponse{
-		Message:    "successfully fetched data by elo",
+		Message:    "successfully fetched data by page",
 		NewPageKey: newPageKey,
 		Users:      users,
 	}, http.StatusOK, nil
