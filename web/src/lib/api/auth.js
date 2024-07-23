@@ -3,15 +3,9 @@ const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID
 const COGNITO_SCOPES = "openid profile email"
 const COGNITO_RESPONSE_TYPE = "token";
 
-/**
- * @typedef {Object} AuthTokens
- * @property {string} id_token
- * @property {string} access_token
- */
 
 /**
- * Fetches the access_token & id_token from the url and returns it.
- * @returns {AuthTokens}
+ * Fetches the access_token & id_token from the url and inserts them to localstore.
  */
 export const GetTokens = () => {
   const params = new URLSearchParams(window.location.search);
@@ -19,10 +13,13 @@ export const GetTokens = () => {
   const accessToken = params.get("access_token");
   // Removing search param from history.
   window.history.replaceState({}, "", `${window.location.origin}${window.location.pathname}`)
-  return {
-    id_token: idToken,
-    access_token: accessToken
-  };
+  
+  if (idToken) {
+    localStorage.setItem("id_token", idToken);
+  }
+  if (accessToken) {
+    localStorage.setItem("access_token", accessToken);
+  }
 }
 
 /**
@@ -37,7 +34,5 @@ export const RequestTokens = () => {
     scope: COGNITO_SCOPES,
     redirect_uri: window.location.href
   })
-  window.location.replace(
-    `https://${COGNITO_DOMAIN}/login?${params.toString()}`
-  )
+  window.location.href = `${COGNITO_DOMAIN}/login?${params.toString()}`
 }

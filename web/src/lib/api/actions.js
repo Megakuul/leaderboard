@@ -30,6 +30,8 @@ import { RequestTokens } from "./auth";
 export const FetchUser = async (region, pagesize="", username="", elo="", lastpagekey="") => {
   const params = new URLSearchParams({
     username: username,
+    region: region,
+    pagesize: pagesize,
     elo: elo,
     lastpagekey: lastpagekey,
   })
@@ -52,7 +54,7 @@ export const FetchUser = async (region, pagesize="", username="", elo="", lastpa
 
 /**
  * @typedef {Object} UpdateUserRequest
- * @property {UpdateUserResponseUser} user_update
+ * @property {UpdateUserRequestUser} user_update
  */
 
 /**
@@ -74,17 +76,16 @@ export const FetchUser = async (region, pagesize="", username="", elo="", lastpa
 /**
  * Updates or registers the user based on the cognito user profile.
  * https://github.com/Megakuul/leaderboard/blob/main/README.md#api
- * @param {string} idToken
  * @param {UpdateUserRequest} userData
  * @returns {Promise<UpdateUserResponse>} if api call succeeds.
  * @throws {Error} if api call failed.
  */
-export const UpdateUser = async (idToken, userData) => {
+export const UpdateUser = async (userData) => {
   const devUrl = import.meta.env.VITE_DEV_API_URL;
   const res = await fetch(`${devUrl?devUrl:""}/api/user/update`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${idToken}`
+      Authorization: `Bearer ${localStorage.getItem("id_token")}`
     },
     body: JSON.stringify(userData),
   })
@@ -190,17 +191,16 @@ export const FetchGame = async (gameid="", date="") => {
 /**
  * Adds a new game to the api.
  * https://github.com/Megakuul/leaderboard/blob/main/README.md#api
- * @param {string} idToken
  * @param {AddGameRequest} gameData
  * @returns {Promise<AddGameResponse>} if api call succeeds.
  * @throws {Error} if api call failed.
  */
-export const AddGame = async (idToken, gameData) => {
+export const AddGame = async (gameData) => {
   const devUrl = import.meta.env.VITE_DEV_API_URL;
   const res = await fetch(`${devUrl?devUrl:""}/api/game/add`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${idToken}`
+      "Authorization": `Bearer ${localStorage.getItem("id_token")}`
     },
     body: JSON.stringify(gameData)
   })
