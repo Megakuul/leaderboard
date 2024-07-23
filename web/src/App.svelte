@@ -5,10 +5,10 @@
   import Toolbar from "./Toolbar.svelte";
   import { onMount } from "svelte";
   import { GetTokens } from "$lib/api/auth";
-  import * as Tooltip from "$lib/components/ui/tooltip";
   import { Button } from "$lib/components/ui/button";
-    import Sparta from "./assets/Sparta.svelte";
-    import Algorithm from "./assets/Algorithm.svelte";
+  import Sparta from "./assets/Sparta.svelte";
+  import Algorithm from "./assets/Algorithm.svelte";
+  import Leaderboard from "./Leaderboard.svelte";
 
   onMount(() => {
     // Fetch access and id_token if provided by the cognito callback
@@ -68,11 +68,11 @@
         </div>
       </div>
     </div>
-    <h1 bind:this={leaderboardTitle} class="top-96 text-9xl">Leaderboard</h1>
+
+    <h1 bind:this={leaderboardTitle} class="top-96 text-7xl my-12">Leaderboard</h1>
+
+    <Leaderboard></Leaderboard>
   </section>
-
-
-
 </main>
 
 <style>

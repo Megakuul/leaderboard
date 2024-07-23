@@ -1,5 +1,7 @@
 # Leaderboard
 
+![leaderboard favicon](/web/public/favicon.svg "leaderboard favicon")
+
 Simple leaderboard system constructed on aws lowcost serverless infrastructure.
 
 ### Deploy the system
