@@ -22,9 +22,7 @@
 
 <div class="bg-gray-950 bg-opacity-70 flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg sm:w-9/12">
   <Button on:click={RequestTokens} variant="outline" class="w-60">Sign In</Button>
-  <Button on:click={() => {
-    leaderboardTitle.scrollIntoView({ behavior: "smooth" })
-  }} variant="outline" class="w-60">
+  <Button on:click={() => leaderboardTitle.scrollIntoView({ behavior: "smooth" })} variant="outline" class="w-60">
     Go to Leaderboard
   </Button>
   <Dialog.Root>
