@@ -18,14 +18,14 @@ func FetchByElo(dynamoClient *dynamodb.Client, ctx context.Context, tableName st
 		TableName: aws.String(tableName),
 		IndexName: aws.String("region_gsi"),
 		ExpressionAttributeNames: map[string]string{
-			"#region": "region",
-			"#elo":    "elo",
+			"#user_region": "user_region",
+			"#elo":         "elo",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":region": &types.AttributeValueMemberN{Value: region},
-			":elo":    &types.AttributeValueMemberN{Value: elo},
+			":user_region": &types.AttributeValueMemberN{Value: region},
+			":elo":         &types.AttributeValueMemberN{Value: elo},
 		},
-		KeyConditionExpression: aws.String("#region = :region AND #elo <= :elo"),
+		KeyConditionExpression: aws.String("#user_region = :user_region AND #elo <= :elo"),
 		ScanIndexForward:       aws.Bool(true),
 		Limit:                  aws.Int32(pageSize),
 	})

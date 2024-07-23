@@ -9,7 +9,7 @@ const (
 
 type UserOutput struct {
 	Username string `dynamodbav:"username" json:"username"`
-	Region   string `dynamodbav:"region" json:"region"`
+	Region   string `dynamodbav:"user_region" json:"region"`
 	Title    string `dynamodbav:"title" json:"title"`
 	IconUrl  string `dynamodbav:"iconurl" json:"iconurl"`
 	Elo      int    `dynamodbav:"elo" json:"elo"`

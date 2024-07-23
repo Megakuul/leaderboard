@@ -15,7 +15,7 @@ type ParticipantOutput struct {
 
 type GameOutput struct {
 	GameId       string                       `dynamodbav:"gameid" json:"gameid"`
-	Date         string                       `dynamodbav:"date" json:"date"`
+	Date         string                       `dynamodbav:"game_date" json:"date"`
 	Readonly     bool                         `dynamodbav:"readonly" json:"readonly"`
 	Participants map[string]ParticipantOutput `dynamodbav:"participants" json:"participants"`
 }

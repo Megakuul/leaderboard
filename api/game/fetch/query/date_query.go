@@ -14,9 +14,9 @@ func FetchByDate(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 		TableName: aws.String(tableName),
 		IndexName: aws.String("date_gsi"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":date": &types.AttributeValueMemberS{Value: date},
+			":game_date": &types.AttributeValueMemberS{Value: date},
 		},
-		KeyConditionExpression: aws.String("date = :date"),
+		KeyConditionExpression: aws.String("game_date = :game_date"),
 	})
 	if err != nil {
 		return nil, err

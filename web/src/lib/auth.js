@@ -1,7 +1,7 @@
 const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN
 const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID
 const COGNITO_SCOPES = "openid profile email"
-const COGNITO_RESPONSE_TYPE = "id_token token";
+const COGNITO_RESPONSE_TYPE = "token";
 
 /**
  * @typedef {Object} AuthTokens

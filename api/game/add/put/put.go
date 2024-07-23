@@ -29,7 +29,7 @@ type ParticipantInput struct {
 
 type GameInput struct {
 	GameId      string                      `dynamodbav:"gameid"`
-	Date        string                      `dynamodbav:"date"`
+	Date        string                      `dynamodbav:"game_date"`
 	ExpiresIn   int                         `dynamodbav:"expires_in"`
 	Readonly    bool                        `dynamodbav:"readonly"`
 	Partcipants map[string]ParticipantInput `dynamodbav:"participants"`
@@ -46,7 +46,7 @@ type ParticipantOutput struct {
 
 type GameOutput struct {
 	GameId      string                      `dynamodbav:"gameid" json:"gameid"`
-	Date        string                      `dynamodbav:"date" json:"date"`
+	Date        string                      `dynamodbav:"game_date" json:"date"`
 	Readonly    bool                        `dynamodbav:"readonly" json:"readonly"`
 	ExpiresIn   int                         `dynamodbav:"expires_in" json:"expires_in"`
 	Partcipants map[string]ParticipantInput `dynamodbav:"participants" json:"participants"`

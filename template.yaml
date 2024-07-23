@@ -44,11 +44,32 @@ Resources:
       Policies:
         PasswordPolicy:
           MinimumLength: 8
+      UsernameConfiguration:
+        CaseSensitive: true
+      UsernameAttributes:
+        - email
+      Schema:
+        - AttributeDataType: String
+          Mutable: true
+          Name: preferred_username
+          Required: true
+        - AttributeDataType: String
+          Mutable: true
+          Name: email
+          Required: true
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
       AutoVerifiedAttributes:
         - email
+        # pref
       EnabledMfas:
         - "SOFTWARE_TOKEN_MFA"
       MfaConfiguration: "ON"
+
+      
+
   
   LeaderboardCognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -61,6 +82,8 @@ Resources:
     Properties:
       UserPoolId: !Ref LeaderboardCognitoUserPool
       ClientName: "leaderboard-auth-client"
+      SupportedIdentityProviders:
+        - COGNITO
       GenerateSecret: false
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows: 
@@ -71,6 +94,7 @@ Resources:
         - email
       CallbackURLs:
         - !Sub "https://${LeaderboardDomain}"
+      DefaultRedirectURI: !Sub "https://${LeaderboardDomain}"
 
 
   # ============================================
@@ -174,6 +198,19 @@ Resources:
           QueryStringsConfig:
             QueryStringBehavior: none
 
+  LeaderboardCDNApiOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: "leaderboard-api-origin-policy"
+        CookiesConfig:
+          CookieBehavior: all
+        HeadersConfig:
+          HeaderBehavior: allExcept
+          Headers:
+            - host # exclude host implicitly tells cloudfront to replace it with the api gateway origin host
+        QueryStringsConfig:
+          QueryStringBehavior: all
 
   LeaderboardCDN:
     Type: AWS::CloudFront::Distribution
@@ -181,13 +218,14 @@ Resources:
       DistributionConfig:
         Enabled: true
         PriceClass: "PriceClass_All"
+        DefaultRootObject: "index.html"
         ViewerCertificate:
           AcmCertificateArn: !Ref LeaderboardDomainCertificateArn
           SslSupportMethod: "sni-only"
           MinimumProtocolVersion: "TLSv1.2_2021"
         Origins:
           - Id: "leaderboard-web-bucket"
-            DomainName: !GetAtt LeaderboardWebBucket.DomainName
+            DomainName: !GetAtt LeaderboardWebBucket.RegionalDomainName
             OriginAccessControlId: !GetAtt LeaderboardCDNOriginAccessControl.Id
             S3OriginConfig: {}
           - Id: "leaderboard-api-gateway"
@@ -220,6 +258,7 @@ Resources:
             Compress: false
             ViewerProtocolPolicy: redirect-to-https
             CachePolicyId: !Ref LeaderboardCDNApiCachePolicy
+            OriginRequestPolicyId: !Ref LeaderboardCDNApiOriginRequestPolicy
         Aliases:
           - !Ref LeaderboardDomain
       Tags:
@@ -234,7 +273,13 @@ Resources:
 
   LeaderboardWebBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
     Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
       Tags:
         - Key: "Name"
           Value: "leaderboard-web-bucket"
@@ -293,7 +338,7 @@ Resources:
           # to scale it the leaderboard can be split up into "regions" to distribute it across regions.
           # this is fine but not optimal (below 200'000 entries per region this should have a very well read performance).
           # for a large scaled application that requires sorted queries over all items, consider not using dynamodb.
-        - AttributeName: "region"
+        - AttributeName: "user_region"
           AttributeType: "S"
       GlobalSecondaryIndexes:
         - IndexName: username_gsi
@@ -307,7 +352,7 @@ Resources:
             MaxWriteRequestUnits: !Ref MaxDatabaseWCU
         - IndexName: region_gsi
           KeySchema:
-            - AttributeName: "region"
+            - AttributeName: "user_region"
               KeyType: "HASH"
             - AttributeName: "elo"
               KeyType: "RANGE"
@@ -336,13 +381,13 @@ Resources:
         - AttributeName: "gameid"
           AttributeType: "S"
 
-          # date is used to query for multiple games based on a date.
-        - AttributeName: "date"
+          # game_date is used to query for multiple games based on a date.
+        - AttributeName: "game_date"
           AttributeType: "S"
       GlobalSecondaryIndexes:
         - IndexName: date_gsi
           KeySchema:
-            - AttributeName: "date"
+            - AttributeName: "game_date"
               KeyType: "HASH"
           Projection:
             ProjectionType: ALL
@@ -546,7 +591,7 @@ Outputs:
     Value: !Ref LeaderboardWebBucket
   CognitoEndpoint:
     Description: "Cognito frontend endpoint. Provide this url to the frontend."
-    Value: !GetAtt LeaderboardCognitoUserPool.ProviderURL
+    Value: !Sub "https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
   CognitoClientID:
     Description: "Cognito client ID. Provide this id to the frontend."
     Value: !GetAtt LeaderboardCognitoUserPoolClient.ClientId
@@ -563,6 +608,7 @@ Outputs:
       Fn::Join:
         - "\n"
         - - ""
+          - ""
           - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName1} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue1}"
           - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName2} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue2}"
           - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName3} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue3}"

@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	REGION                = os.Getenv("REGION")
+	REGION                = os.Getenv("AWS_REGION")
 	USERTABLE             = os.Getenv("USERTABLE")
 	GAMETABLE             = os.Getenv("GAMETABLE")
 	MAILTEMPLATE          = os.Getenv("MAILTEMPLATE")

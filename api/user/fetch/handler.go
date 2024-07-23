@@ -46,7 +46,7 @@ func FetchHandler(dynamoClient *dynamodb.Client) func(context.Context, events.AP
 
 func runFetchHandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV2HTTPRequest, ctx context.Context) (*FetchResponse, int, error) {
 	region := request.QueryStringParameters["region"]
-	if region != "" {
+	if region == "" {
 		region = REGION
 	}
 

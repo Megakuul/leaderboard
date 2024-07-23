@@ -135,6 +135,16 @@ The region is updated based on the aws region of the called function.
 **Headers**:
   - **Authorization**: "Bearer id_token"
 
+**Body**:
+  - ```json
+    {
+      "user_updates": {
+        "title": "Wendig",
+        "iconurl": "https://urltoicon"
+      }
+    }
+    ```
+
 **Returns**:
 
   - **200**: application/json

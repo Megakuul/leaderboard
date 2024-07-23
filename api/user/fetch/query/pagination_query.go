@@ -30,12 +30,12 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 		TableName: aws.String(tableName),
 		IndexName: aws.String("region_gsi"),
 		ExpressionAttributeNames: map[string]string{
-			"#region": "region",
+			"#user_region": "user_region",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":region": &types.AttributeValueMemberS{Value: region},
+			":user_region": &types.AttributeValueMemberS{Value: region},
 		},
-		KeyConditionExpression: aws.String("region = :region"),
+		KeyConditionExpression: aws.String("#user_region = :user_region"),
 		Limit:                  aws.Int32(pageSize),
 		ScanIndexForward:       aws.Bool(true),
 		ExclusiveStartKey:      pageKey,
@@ -57,18 +57,18 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 
 func serializePageKey(pageKey map[string]types.AttributeValue) (string, error) {
 	var translatedMap map[string]interface{}
-	if err := attributevalue.UnmarshalMap(pageKey, translatedMap); err != nil {
+	if err := attributevalue.UnmarshalMap(pageKey, &translatedMap); err != nil {
 		return "", err
 	}
 	encodedMap, err := json.Marshal(&translatedMap)
 	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(encodedMap), nil
+	return base64.RawURLEncoding.EncodeToString(encodedMap), nil
 }
 
 func deserializePageKey(pageKey string) (map[string]types.AttributeValue, error) {
-	decodedPageKey, err := base64.StdEncoding.DecodeString(pageKey)
+	decodedPageKey, err := base64.RawURLEncoding.DecodeString(pageKey)
 	if err != nil {
 		return nil, err
 	}
