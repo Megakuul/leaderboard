@@ -158,7 +158,7 @@ export const FetchGame = async (gameid="", date="") => {
 
 /**
  * @typedef {Object} AddGameRequest
- * @property {number} placement_points
+ * @property {string} placement_points
  * @property {AddGameRequestParticipant[]} participants
  */
 

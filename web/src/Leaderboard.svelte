@@ -1,5 +1,5 @@
 <script>
-  import { FetchUser } from "$lib/api/actions";
+  import { AddGame, FetchUser } from "$lib/api/actions";
   import { buttonVariants } from "$lib/components/ui/button";
   import LoaderCircle from "lucide-svelte/icons/loader-circle";
   import Button from "$lib/components/ui/button/button.svelte";
@@ -11,9 +11,59 @@
   import * as Avatar from "$lib/components/ui/avatar/index.js";
   import { toast } from "svelte-sonner";
   import { onMount } from "svelte";
+  import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import { fade } from "svelte/transition";
+  import { Badge } from "$lib/components/ui/badge";
 
   /** @type {string} */
   const REGIONS = import.meta.env.VITE_LEADERBOARD_REGIONS;
+
+  /** @type {boolean} */
+  let addButtonState;
+
+  /** @type {string} */
+  let addPlacementPoints = "100";
+
+  /** @type {import("$lib/api/actions").AddGameRequestParticipant[]} */
+  let addParticipants = [];
+
+  /** @type {import("$lib/api/actions").AddGameResponseGame}*/
+  // let addGameResult = undefined;
+  let addGameResult = {
+    expires_in: 1721820230,
+    date: "salami",
+    gameid: "c1f1a3b1-0fde-4cf4-aaf1-eef95296e1b7",
+    readonly: false,
+    participants: [
+      {
+        confirmed: false,
+        elo: 16,
+        elo_update: 17,
+        placement: 1,
+        points: 15,
+        team: 2,
+        username: "salamipizza"
+      },
+      {
+        confirmed: true,
+        elo: 16,
+        elo_update: 0,
+        placement: 1,
+        points: 15,
+        team: 2,
+        username: "Salat"
+      },
+      {
+        confirmed: false,
+        elo: 16,
+        elo_update: -76,
+        placement: 1,
+        points: 15,
+        team: 2,
+        username: "Brot"
+      }
+    ]
+  }
 
   /** @type {import("bits-ui/dist").Selected<any>} */
   let selectedRegion = { value: "" };
@@ -68,14 +118,103 @@
   <Dialog.Root>
     <Dialog.Trigger class="w-full lg:w-40 {buttonVariants({ variant: "outline" })}">Add Game</Dialog.Trigger>
     <Dialog.Content>
-      <Dialog.Header>
-        <Dialog.Title>Add new Game</Dialog.Title>
-        <Dialog.Description>
-          Add a game to the leaderboard.
-        </Dialog.Description>
-      </Dialog.Header>
-      <Dialog.Footer>
-      </Dialog.Footer>
+      {#if !addGameResult}
+        <Dialog.Header>
+          <Dialog.Title>Add new Game</Dialog.Title>
+          <Dialog.Description>
+            Add a game to the leaderboard.
+          </Dialog.Description>
+        </Dialog.Header>
+
+        <div class="flex flex-row gap-2">
+          <Input bind:value={addPlacementPoints} type="number" placeholder="Placement Points" />
+
+          <Button variant="outline" class="w-full" on:click={() => {
+            addParticipants = addParticipants.concat({
+              username: "",
+              placement: NaN,
+              points: NaN,
+              team: NaN,
+            })
+          }}>Add Participant</Button>
+        </div>
+
+        <ScrollArea class="max-h-96 w-full p-2">
+          {#each addParticipants as participant}
+            <div transition:fade={{ delay: 250, duration: 300 }} class="flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
+              <Input bind:value={participant.username} type="text" placeholder="Username" class="w-full" />
+              <div class="flex flex-row gap-2">
+                <Input bind:value={participant.team} type="number" placeholder="Team" class="w-full" />
+                <Input bind:value={participant.placement} type="number" placeholder="Placement" class="w-full" />
+                <Input bind:value={participant.points} type="number" placeholder="Points" class="w-full" />
+              </div>
+            </div>
+          {/each}
+        </ScrollArea>
+
+        <Dialog.Footer>
+          <Button type="submit" on:click={async () => {
+            try {
+              addButtonState = true;
+              const response = await AddGame({
+                placement_points: addPlacementPoints,
+                participants: addParticipants,
+              })
+              toast.success("Game added")
+            } catch (err) {
+              toast.error("Failed to add game", {
+                description: err.message,
+              })
+            }
+            addButtonState = false;
+          }}>
+            {#if addButtonState}
+              <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
+            {/if}
+            Add Game
+          </Button>
+        </Dialog.Footer>
+      {:else}
+        <Dialog.Header>
+          <Dialog.Title>Review Game {addGameResult.gameid}</Dialog.Title>
+          <Dialog.Description>
+            Participants received a confirmation email. 
+            All must confirm by {new Date(addGameResult.expires_in * 1000).toLocaleString()} or the game will be canceled.
+          </Dialog.Description>
+        </Dialog.Header>
+
+        <ScrollArea class="max-h-96 w-full p-2">
+          {#each addGameResult.participants as participant}
+            <div class="relative flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
+              <div class="absolute z-40 top-0 right-0 flex flex-row gap-4">
+                {#if !participant.confirmed}
+                  <Badge class="bg-orange-500">Not Confirmed</Badge>
+                {/if}
+                {#if participant.elo_update >= 0}
+                  <Badge class="bg-green-500">+{participant.elo_update}</Badge>
+                {:else}
+                  <Badge class="bg-red-600">{participant.elo_update}</Badge>
+                {/if}
+              </div>
+              <Input disabled value={participant.username} type="text" placeholder="Username" class="w-full" />
+              <div class="flex flex-row gap-2">
+                <Input disabled value={participant.team} type="number" placeholder="Team" class="w-full" />
+                <Input disabled value={participant.placement} type="number" placeholder="Placement" class="w-full" />
+                <Input disabled value={participant.points} type="number" placeholder="Points" class="w-full" />
+              </div>
+            </div>
+          {/each}
+        </ScrollArea>
+
+        <Dialog.Footer>
+          <Button on:click={() => {
+            addGameResult = undefined;
+            addParticipants = [];
+          }}>
+            Create new Game
+          </Button>
+        </Dialog.Footer>
+      {/if}
     </Dialog.Content>
   </Dialog.Root>
 

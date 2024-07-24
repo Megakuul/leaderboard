@@ -67,6 +67,10 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to deserialize request: invalid body")
 	}
 
+	if len(req.Participants) < 2 {
+		return nil, http.StatusBadRequest, fmt.Errorf("minimum number of participants is 2")
+	}
+
 	if len(req.Participants) > MAXIMUM_PARTICIPANTS {
 		return nil, http.StatusBadRequest, fmt.Errorf("maximum number of participants is %d", MAXIMUM_PARTICIPANTS)
 	}
