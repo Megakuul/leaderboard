@@ -15,9 +15,9 @@ import (
 func UpdateGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName, gameid, username string, setReadonly bool) error {
 	var updateExpression string
 	if setReadonly {
-		updateExpression = "SET #readonly = :readonly, #participants[#username].#confirmed = :confirmed  REMOVE #expires_in"
+		updateExpression = "SET #readonly = :readonly, #participants.#username.#confirmed = :confirmed  REMOVE #expires_in"
 	} else {
-		updateExpression = "SET #participants[#username].#confirmed = :confirmed"
+		updateExpression = "SET #participants.#username.#confirmed = :confirmed"
 	}
 
 	_, err := dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
@@ -28,7 +28,8 @@ func UpdateGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName, g
 		ConditionExpression: aws.String("attribute_exists(gameid)"), // prevent it to upsert if not existent
 		ExpressionAttributeNames: map[string]string{
 			"#participants": "participants",
-			"#username":     "username",
+			"#username":     username,
+			"#confirmed":    "confirmed",
 			"#readonly":     "readonly",
 			"#expires_in":   "expires_in",
 		},

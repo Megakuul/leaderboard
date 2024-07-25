@@ -82,6 +82,7 @@ Resources:
     Properties:
       UserPoolId: !Ref LeaderboardCognitoUserPool
       ClientName: "leaderboard-auth-client"
+      IdTokenValidity: 12 # Valid for 12 hours
       SupportedIdentityProviders:
         - COGNITO
       GenerateSecret: false

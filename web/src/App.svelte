@@ -11,7 +11,7 @@
   import Leaderboard from "./Leaderboard.svelte";
 
   onMount(() => {
-    // Fetch access and id_token if provided by the cognito callback
+    // Fetch id_token if provided by the cognito callback
     // and moves them into the local storage.
     GetTokens();
   })

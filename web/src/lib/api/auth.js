@@ -3,9 +3,24 @@ const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID
 const COGNITO_SCOPES = "openid profile email"
 const COGNITO_RESPONSE_TYPE = "token";
 
+/**
+ * Acquire expiration time as unix millisecond. Returns NaN on failure.
+ * @param {string} idToken 
+ * @returns {number}
+ */
+const getIDTokenExpiration = (idToken) => {
+  try {
+    const idTokenPayload = JSON.parse(
+      Buffer.from(idToken.split(".")[1], "base64url").toString()
+    )
+    return idTokenPayload.exp * 1000;
+  } catch {
+    return NaN;
+  }
+}
 
 /**
- * Fetches the access_token & id_token from the url and inserts them to localstore.
+ * Fetches the id_token from the url and inserts them to localstore.
  */
 export const GetTokens = () => {
   // Params are provided as url fragment so that they are not sent to the server.
@@ -13,20 +28,21 @@ export const GetTokens = () => {
   const params = new URLSearchParams(url.hash.slice(1));
 
   const idToken = params.get("id_token");
-  const accessToken = params.get("access_token");
+  const idTokenExp = getIDTokenExpiration(idToken);
+
   // Removing search param from history.
   window.history.replaceState({}, "", `${window.location.origin}${window.location.pathname}`)
   
   if (idToken) {
     localStorage.setItem("id_token", idToken);
   }
-  if (accessToken) {
-    localStorage.setItem("access_token", accessToken);
+  if (idTokenExp) {
+    localStorage.setItem("id_token_exp", new Date(idTokenExp).toISOString())
   }
 }
 
 /**
- * Redirects the user to the cognito endpoint to fetch the access_token & id_token.
+ * Redirects the user to the cognito endpoint to fetch the id_token.
  * The redirect_uri is set to the current window location.
  */
 export const RequestTokens = () => {

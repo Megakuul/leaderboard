@@ -61,6 +61,9 @@
   /** @type {import("$lib/api/actions").FetchUserResponseUser[]} */
   let queryResults;
 
+  /** @type {boolean} */
+  let loadPageButtonState;
+
   /** @type {string} */
   let lastPageKey;
 
@@ -275,4 +278,33 @@
       <LoaderCircle class="h-8 w-8 animate-spin" />
     </center>
   {/if}
+  {#if lastPageKey}
+    <Button variant="ghost" class="w-full my-6" on:click={async () => {
+      try {
+        loadPageButtonState = true;
+        const response = await FetchUser(
+          selectedRegion.value||"",
+          queryEntryCount,
+          "",
+          "",
+          lastPageKey,
+        )
+        lastPageKey = response.newpagekey;
+        queryResults = queryResults.concat(response.users);
+        queryResultError = "";
+        toast.success("Entries fetched")
+      } catch (err) {
+        queryResultError = err.message;
+        toast.error("Failed to fetch entries", {
+          description: err.message,
+        })
+      }
+      loadPageButtonState = false;
+    }}>
+      Load more...
+      {#if loadPageButtonState}
+        <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
+      {/if}
+    </Button>
+    {/if}
 </div>

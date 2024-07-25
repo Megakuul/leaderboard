@@ -18,9 +18,15 @@ For this first build the backend lambda functions:
 sam build
 ```
 
+Ensure to have the `AWS_PROFILE` variable set to the account you want to deploy the system on:
+```bash
+export AWS_PROFILE=<YourAWSProfile>
+```
+(you can list the profiles with `aws configure list-profiles`)
+
 Then we need to generate the `ACM` certificate for the application (important, the certificate must be in `us-east-1` regardless of your region). This can be done via the AWS ACM dashboard or via cli:
 ```bash
-CERT_ARN=$(aws acm request-certificate --region us-east-1 --domain-name example.com --validation-method DNS --query 'CertificateArn' --output text)
+export CERT_ARN=$(aws acm request-certificate --region us-east-1 --domain-name example.com --validation-method DNS --query 'CertificateArn' --output text)
 aws acm describe-certificate --region us-east-1 --certificate-arn $CERT_ARN --query 'Certificate.DomainValidationOptions[0].ResourceRecord'
 ```
 (the values provided by the ResourceRecord output must be entered in your dns console to validate the domain)

@@ -40,6 +40,7 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 		ScanIndexForward:       aws.Bool(true),
 		ExclusiveStartKey:      pageKey,
 	})
+
 	if err != nil {
 		return nil, "", err
 	}
@@ -47,6 +48,9 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 	err = attributevalue.UnmarshalListOfMaps(output.Items, &users)
 	if err != nil {
 		return nil, "", err
+	}
+	if len(output.LastEvaluatedKey) < 1 {
+		return users, "", nil
 	}
 	newPageKey, err := serializePageKey(output.LastEvaluatedKey)
 	if err != nil {

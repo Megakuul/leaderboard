@@ -2,7 +2,6 @@
 package rating
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
@@ -43,7 +42,7 @@ type ParticipantOutput struct {
 // 2. Add participants to teams (based on the participants "team" tag) and sum all the participants rating and points per team.
 // 3. Create a hypothesis & evidence value for every team. This means simply calculating the percentage of rating & points based on the current game.
 // 4. Calculate the difference between hypothesis & evidence multiply it with maxLossNumber and setting it as rating update on all participants of the team.
-func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int, maxLossNumber int) []ParticipantOutput {
+func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int, maxLossNumber int) []*ParticipantOutput {
 	// Reverse sort, to assign points based on index position
 	sort.Slice(participants, func(i, j int) bool {
 		return participants[i].Placement < participants[j].Placement
@@ -95,7 +94,7 @@ func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int,
 	var underdogDifference float64 = 0.0
 	underdogRatingBonus := float64(len(teams) * UNDERDOG_BONUS_MULTIPLICATOR)
 
-	outputParticipants := []ParticipantOutput{}
+	outputParticipants := []*ParticipantOutput{}
 	for _, entity := range teams {
 		setUnderdog := false
 
@@ -112,11 +111,8 @@ func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int,
 			setUnderdog = true
 		}
 
-		fmt.Println("Diff ", difference)
-
 		// underdog bonus multiplicator is removed
 		baseUpdate := (float64(maxLossNumber) * (evidence - hypothesis)) - UNDERDOG_BONUS_MULTIPLICATOR
-		fmt.Println("Base ", baseUpdate)
 		// integer frac of the update is used for further calculations.
 		updateNum := int(baseUpdate)
 		// remaining float frac is shifted to the underdog bonus as we don't want to leak this.
@@ -141,7 +137,7 @@ func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int,
 				Points:       part.Points,
 				Placement:    part.Placement,
 			}
-			outputParticipants = append(outputParticipants, output)
+			outputParticipants = append(outputParticipants, &output)
 
 			// If underdog flag is set AND the participant has the most points of the team
 			// he is set as underdogRef (dough this can change later on).
