@@ -18,12 +18,6 @@ For this first build the backend lambda functions:
 sam build
 ```
 
-Ensure to have the `AWS_PROFILE` variable set to the account you want to deploy the system on:
-```bash
-export AWS_PROFILE=<YourAWSProfile>
-```
-(you can list the profiles with `aws configure list-profiles`)
-
 Then we need to generate the `ACM` certificate for the application (important, the certificate must be in `us-east-1` regardless of your region). This can be done via the AWS ACM dashboard or via cli:
 ```bash
 export CERT_ARN=$(aws acm request-certificate --region us-east-1 --domain-name example.com --validation-method DNS --query 'CertificateArn' --output text)
@@ -51,14 +45,21 @@ In the next step you need to deploy the web application:
    ```
 
 
-Then add a dns entry pointing the application's domain to the CloudFront address (found in the SAM output).
+Then add a dns entry pointing the application's domain to the CloudFront address (found in the SAM output as <CNameEntries>).
 
 
-In the last step, we need to configure the dns to support our SES (Simple Email Service) configuration. For this, you will need to set some dns entries on the application's domain:
+In the next step, we need to configure the dns to support our SES (Simple Email Service) configuration. For this, you will need to set some dns entries on the application's domain:
 
 1. The `dmarc` entry is used to specify the behavior for `spf` and `dkim` failures. The recommended strict configuration is provided in the SAM output as `SPFEntries`. 
 2. The `spf` entry is used to specify which server is allowed to send mail from this domain. Here we set `include:amazonses.com` so that mail servers use the SPF configuration of SES (containing the respective ip's). The recommended strict configuration is provided in the SAM output as `SPFEntries`.
 3. The `dkim` records are required to verify the mail signature. `dkim` needs three different entries and is also serving the purpose of validating the applications' domain on SES. The required configuration is provided in the SAM output as `DKIMEntries`.
+
+
+Finally we must request production access for AWS SES. As mentioned [here](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html), AWS SES sandboxes the environment by default, which means that all recipients MUST be manually added and verified in the SES portal.
+
+You can follow the instructions [here](https://docs.aws.amazon.com/ses/latest/dg/setting-up.html#quick-start-verify-email-addresses) or follow the wizard in the SES portal to request production access for the leaderboard domain.
+
+After the production access has been granted, the application should be fully functional.
 
 
 ### Remove the system

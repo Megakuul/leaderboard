@@ -4,6 +4,20 @@ const COGNITO_SCOPES = "openid profile email"
 const COGNITO_RESPONSE_TYPE = "token";
 
 /**
+ * Converts base64url to string
+ * @param {string} str 
+ * @returns {string}
+ */
+const decodeBase64URL = (str) => {
+  const m = str.length % 4;
+  return new TextDecoder().decode(Uint8Array.from(atob(
+      str.replace(/-/g, '+')
+          .replace(/_/g, '/')
+          .padEnd(str.length + (m === 0 ? 0 : 4 - m), '=')
+  ), c => c.charCodeAt(0)).buffer)
+}
+
+/**
  * Acquire expiration time as unix millisecond. Returns NaN on failure.
  * @param {string} idToken 
  * @returns {number}
@@ -11,7 +25,7 @@ const COGNITO_RESPONSE_TYPE = "token";
 const getIDTokenExpiration = (idToken) => {
   try {
     const idTokenPayload = JSON.parse(
-      Buffer.from(idToken.split(".")[1], "base64url").toString()
+      decodeBase64URL(idToken.split(".")[1])
     )
     return idTokenPayload.exp * 1000;
   } catch {

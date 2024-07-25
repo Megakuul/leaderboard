@@ -12,22 +12,23 @@
   /** @type {HTMLHeadingElement} */
   export let leaderboardTitle;
 
+  /** @type {Date} */
+  export let tokenExpirationTime;
+
   /** @type {string} */
   let syncTitleInput;
   /** @type {string} */
   let syncIconInput;
   /** @type {boolean} */
   let syncButtonState = false;
-
-  const tokenExpirationTime = new Date(localStorage.getItem("id_token_exp"))
 </script>
 
 
 <div class="bg-gray-950 bg-opacity-70 flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg sm:w-9/12">
-  {#if tokenExpirationTime.getTime() > new Date().getTime()}
+  {#if tokenExpirationTime?.getTime() > new Date().getTime()}
     <div class="relative w-60">
       <Button on:click={RequestTokens} variant="outline" class="w-60 bg-emerald-800">Signed In</Button>
-      <Badge class="bg-green-300 z-40 absolute bottom-0 right-0">{tokenExpirationTime.toLocaleTimeString(undefined, {
+      <Badge class="bg-green-300 z-40 absolute bottom-0 right-0">{tokenExpirationTime?.toLocaleTimeString(undefined, {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,

@@ -14,10 +14,15 @@
     // Fetch id_token if provided by the cognito callback
     // and moves them into the local storage.
     GetTokens();
+
+    tokenExpirationTime = new Date(localStorage.getItem("id_token_exp"))
   })
 
   /** @type {HTMLHeadingElement} */
   let leaderboardTitle;
+
+  /** @type {Date} */
+  let tokenExpirationTime;
 </script>
 
 <Toaster />
@@ -31,7 +36,7 @@
     <p class="w-full text-sm sm:text-lg text-indigo-600 text-end font-bold">fighting for glory and honor</p>
   </section>
   <section class="flex flex-col items-center">
-    <Toolbar leaderboardTitle={leaderboardTitle}></Toolbar>
+    <Toolbar leaderboardTitle={leaderboardTitle} tokenExpirationTime={tokenExpirationTime}></Toolbar>
 
     <div class="w-full my-32 flex flex-col justify-around">
 
