@@ -41,7 +41,7 @@ In the next step you need to deploy the web application:
 
 2. Upload to the S3 bucket (bucket name is provided in SAM output):
    ```bash
-   aws s3 cp build s3://<bucket-name> --recursive
+   aws s3 cp dist s3://<bucket-name> --recursive
    ```
 
 
@@ -192,10 +192,12 @@ Fetches played games.
         {
           "gameid": "550e8400-e29b-11d4-a716-446655440000",
           "date": "2006-01-02",
+          "expires_in": 1721550651,
           "readonly": true,
-          "participants": [
-            {
+          "participants": {
+            "Panzerknacker": {
               "username": "Panzerknacker",
+              "underdog": false,
               "team": 2,
               "placement": 2,
               "points": 130,
@@ -203,8 +205,9 @@ Fetches played games.
               "elo_update": -10,
               "confirmed": true
             },
-            {
+            "Kater Karlo": {
               "username": "Kater Karlo",
+              "underdog": true,
               "team": 1,
               "placement": 1,
               "points": 160,
@@ -212,7 +215,7 @@ Fetches played games.
               "elo_update": 20,
               "confirmed": true
             },
-          ]
+          }
         }
       ]
     }
@@ -257,32 +260,7 @@ Adds a game to the leaderboard.
     ```json
     {
       "message": "success message xy",
-      "game": {
-        "gameid": "550e8400-e29b-11d4-a716-446655440000",
-        "date": "2006-01-02",
-        "readonly": false,
-        "expires_in": 1721550651,
-        "participants": [
-          {
-            "username": "Panzerknacker",
-            "team": 2,
-            "placement": 2,
-            "points": 130,
-            "elo": 250,
-            "elo_update": -10,
-            "confirmed": false
-          },
-          {
-            "username": "Kater Karlo",
-            "team": 1,
-            "placement": 1,
-            "points": 160,
-            "elo": 200,
-            "elo_update": 20,
-            "confirmed": true
-          },
-        ]
-      }
+      "gameid": "game-uuid"
     }
     ```
   - **401**: text/plain

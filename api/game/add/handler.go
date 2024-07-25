@@ -31,8 +31,8 @@ type AddRequest struct {
 }
 
 type AddResponse struct {
-	Message string         `json:"message"`
-	Game    put.GameOutput `json:"game"`
+	Message string `json:"message"`
+	GameId  string `json:"gameid"`
 }
 
 func AddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client) func(context.Context, events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
@@ -83,6 +83,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		}
 		ratingInputParticipants = append(ratingInputParticipants, rating.ParticipantInput{
 			UserRef:   user,
+			Team:      part.Team,
 			Rating:    user.Elo,
 			Points:    part.Points,
 			Placement: part.Placement,
@@ -114,6 +115,7 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 		gameInputParticipants[part.UserRef.Username] = put.ParticipantInput{
 			Subject:       part.UserRef.Subject,
 			Username:      part.UserRef.Username,
+			Underdog:      part.Underdog,
 			Team:          part.Team,
 			Placement:     part.Placement,
 			Points:        part.Points,
@@ -125,17 +127,17 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 	}
 
 	expirationTime := time.Now().Add(time.Duration(HOURS_UNTIL_EXPIRED) * time.Hour)
-	gameOutput, err := put.InsertGame(dynamoClient, ctx, GAMETABLE, gameInputParticipants, int(expirationTime.Unix()))
+	gameid, err := put.InsertGame(dynamoClient, ctx, GAMETABLE, gameInputParticipants, int(expirationTime.Unix()))
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to insert game: %v", err)
 	}
 
-	if err := sender.SendConfirmMails(sesClient, ctx, MAILSENDER, MAILTEMPLATE, gameOutput.GameId, emailConfirmRequests); err != nil {
-		return nil, http.StatusBadRequest, fmt.Errorf("failed to send at least one confirmation mail")
+	if err := sender.SendConfirmMails(sesClient, ctx, MAILSENDER, MAILTEMPLATE, gameid, emailConfirmRequests); err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to send at least one confirmation mail: %v", err)
 	}
 
 	return &AddResponse{
 		Message: "successfully added game. ensure all players confirm the game to validate it",
-		Game:    *gameOutput,
+		GameId:  gameid,
 	}, http.StatusOK, nil
 }

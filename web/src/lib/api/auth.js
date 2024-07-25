@@ -8,7 +8,10 @@ const COGNITO_RESPONSE_TYPE = "token";
  * Fetches the access_token & id_token from the url and inserts them to localstore.
  */
 export const GetTokens = () => {
-  const params = new URLSearchParams(window.location.search);
+  // Params are provided as url fragment so that they are not sent to the server.
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams(url.hash.slice(1));
+
   const idToken = params.get("id_token");
   const accessToken = params.get("access_token");
   // Removing search param from history.
@@ -27,12 +30,13 @@ export const GetTokens = () => {
  * The redirect_uri is set to the current window location.
  */
 export const RequestTokens = () => {
+  const devUrl = import.meta.env.VITE_DEV_API_URL;
   const params = new URLSearchParams({
     client_id: COGNITO_CLIENT_ID,
     // prompt=none for silent auth
     response_type: COGNITO_RESPONSE_TYPE,
     scope: COGNITO_SCOPES,
-    redirect_uri: window.location.href
+    redirect_uri: devUrl ? devUrl : window.location.href
   })
   window.location.href = `${COGNITO_DOMAIN}/login?${params.toString()}`
 }

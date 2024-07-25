@@ -11,6 +11,10 @@ import (
 	"github.com/megakuul/leaderboard/api/user/update/update"
 )
 
+const (
+	MAX_TITLE_LENGTH = 25
+)
+
 type UpdateRequest struct {
 	UserUpdates update.UserInput `json:"user_updates"`
 }
@@ -56,6 +60,10 @@ func runUpdatehandler(dynamoClient *dynamodb.Client, request *events.APIGatewayV
 	var req UpdateRequest
 	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to deserialize request: invalid body")
+	}
+
+	if len(req.UserUpdates.Title) > MAX_TITLE_LENGTH {
+		return nil, http.StatusBadRequest, fmt.Errorf("maximum title length is %d", MAX_TITLE_LENGTH)
 	}
 
 	user, err := update.UpsertUser(dynamoClient, ctx, BASEELO, USERTABLE, sub, REGION, request.RequestContext.Authorizer.JWT.Claims, &req.UserUpdates)

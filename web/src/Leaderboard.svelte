@@ -1,5 +1,5 @@
 <script>
-  import { AddGame, FetchUser } from "$lib/api/actions";
+  import { AddGame, FetchGame, FetchUser } from "$lib/api/actions";
   import { buttonVariants } from "$lib/components/ui/button";
   import LoaderCircle from "lucide-svelte/icons/loader-circle";
   import Button from "$lib/components/ui/button/button.svelte";
@@ -21,49 +21,14 @@
   /** @type {boolean} */
   let addButtonState;
 
-  /** @type {string} */
-  let addPlacementPoints = "100";
+  /** @type {number} */
+  let addPlacementPoints = 100;
 
   /** @type {import("$lib/api/actions").AddGameRequestParticipant[]} */
   let addParticipants = [];
 
-  /** @type {import("$lib/api/actions").AddGameResponseGame}*/
-  // let addGameResult = undefined;
-  let addGameResult = {
-    expires_in: 1721820230,
-    date: "salami",
-    gameid: "c1f1a3b1-0fde-4cf4-aaf1-eef95296e1b7",
-    readonly: false,
-    participants: [
-      {
-        confirmed: false,
-        elo: 16,
-        elo_update: 17,
-        placement: 1,
-        points: 15,
-        team: 2,
-        username: "salamipizza"
-      },
-      {
-        confirmed: true,
-        elo: 16,
-        elo_update: 0,
-        placement: 1,
-        points: 15,
-        team: 2,
-        username: "Salat"
-      },
-      {
-        confirmed: false,
-        elo: 16,
-        elo_update: -76,
-        placement: 1,
-        points: 15,
-        team: 2,
-        username: "Brot"
-      }
-    ]
-  }
+  /** @type {import("$lib/api/actions").FetchGameResponseGame} */
+  let addGameResult = undefined;
 
   /** @type {import("bits-ui/dist").Selected<any>} */
   let selectedRegion = { value: "" };
@@ -127,7 +92,7 @@
         </Dialog.Header>
 
         <div class="flex flex-row gap-2">
-          <Input bind:value={addPlacementPoints} type="number" placeholder="Placement Points" />
+          <Input bind:value={addPlacementPoints} on:input={(_) => addPlacementPoints = +addPlacementPoints} type="number" placeholder="Placement Points" />
 
           <Button variant="outline" class="w-full" on:click={() => {
             addParticipants = addParticipants.concat({
@@ -144,9 +109,9 @@
             <div transition:fade={{ delay: 250, duration: 300 }} class="flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
               <Input bind:value={participant.username} type="text" placeholder="Username" class="w-full" />
               <div class="flex flex-row gap-2">
-                <Input bind:value={participant.team} type="number" placeholder="Team" class="w-full" />
-                <Input bind:value={participant.placement} type="number" placeholder="Placement" class="w-full" />
-                <Input bind:value={participant.points} type="number" placeholder="Points" class="w-full" />
+                <Input bind:value={participant.team} on:input={(_) => participant.team = +participant.team} type="number" placeholder="Team" class="w-full" />
+                <Input bind:value={participant.placement} on:input={(_) => participant.placement = +participant.placement} type="number" placeholder="Placement" class="w-full" />
+                <Input bind:value={participant.points} on:input={(_) => participant.points = +participant.points} type="number" placeholder="Points" class="w-full" />
               </div>
             </div>
           {/each}
@@ -156,11 +121,14 @@
           <Button type="submit" on:click={async () => {
             try {
               addButtonState = true;
-              const response = await AddGame({
+              const addResponse = await AddGame({
                 placement_points: addPlacementPoints,
                 participants: addParticipants,
               })
               toast.success("Game added")
+              const fetchResponse = await FetchGame(addResponse.gameid)
+              addGameResult = fetchResponse.games[0];
+              toast.success("Preview loaded")
             } catch (err) {
               toast.error("Failed to add game", {
                 description: err.message,
@@ -184,11 +152,14 @@
         </Dialog.Header>
 
         <ScrollArea class="max-h-96 w-full p-2">
-          {#each addGameResult.participants as participant}
+          {#each Object.entries(addGameResult.participants) as [_, participant]}
             <div class="relative flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
               <div class="absolute z-40 top-0 right-0 flex flex-row gap-4">
                 {#if !participant.confirmed}
                   <Badge class="bg-orange-500">Not Confirmed</Badge>
+                {/if}
+                {#if participant.underdog}
+                  <Badge class="bg-indigo-700">Underdog</Badge>
                 {/if}
                 {#if participant.elo_update >= 0}
                   <Badge class="bg-green-500">+{participant.elo_update}</Badge>
@@ -282,14 +253,14 @@
 <div class="lg:w-9/12 my-10">
   {#if queryResults}
     {#each queryResults as result}
-      <div class="flex flex-row gap-4 items-center w-full bg-slate-950 bg-opacity-50 rounded-xl p-5">
+      <div class="flex flex-row gap-4 items-center w-full bg-slate-950 bg-opacity-50 rounded-xl my-4 p-5">
         <Avatar.Root>
           <Avatar.Image src="{result.iconurl}" alt="{result.username} icon" />
           <Avatar.Fallback>AN</Avatar.Fallback>
         </Avatar.Root>
         <p class="text-xl uppercase font-bold">{result.username}</p>
-        <p class="text-slate-50 text-opacity-50"># {result.title}</p>
-        <p class="text-slate-50 text-opacity-50 ml-auto mr-2">{result.region}</p>
+        <p class="hidden sm:block text-slate-50 text-opacity-50 overflow-hidden"># {result.title}</p>
+        <p class="hidden sm:block text-slate-50 text-opacity-50 overflow-hidden ml-auto mr-2">{result.region}</p>
         <p class="text-xl font-bold mr-2">{result.elo}</p>
       </div>
     {/each}
@@ -300,6 +271,8 @@
       <Alert.Description>{queryResultError}</Alert.Description>
     </Alert.Root>
   {:else}
-    <LoaderCircle class="h-8 w-8 animate-spin" />
+    <center>
+      <LoaderCircle class="h-8 w-8 animate-spin" />
+    </center>
   {/if}
 </div>

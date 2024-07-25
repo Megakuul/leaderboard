@@ -2,9 +2,15 @@
 package rating
 
 import (
+	"fmt"
+	"math"
 	"sort"
 
 	"github.com/megakuul/leaderboard/api/game/add/query"
+)
+
+const (
+	UNDERDOG_BONUS_MULTIPLICATOR = 1
 )
 
 type ParticipantInput struct {
@@ -23,6 +29,7 @@ type team struct {
 
 type ParticipantOutput struct {
 	UserRef      *query.UserOutput
+	Underdog     bool
 	RatingUpdate int
 	Team         int
 	Rating       int
@@ -44,7 +51,7 @@ func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int,
 
 	// teams represent a intermediate calculation entity.
 	// They are used to ensure all players of one team have the same rating update.
-	teams := map[int]team{}
+	teams := map[int]*team{}
 
 	// Rating is used for hypothesis calculation
 	var combinedRating int
@@ -68,7 +75,7 @@ func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int,
 			entity.Rating += part.Rating
 			entity.Points += part.Points
 		} else {
-			teams[part.Team] = team{
+			teams[part.Team] = &team{
 				Participants: []*ParticipantInput{&part},
 				Rating:       part.Rating,
 				Points:       part.Points,
@@ -76,26 +83,80 @@ func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int,
 		}
 	}
 
+	// this algorithm has a problem: when performing the hypothesis & evidence division
+	// this yields a float64. As this elo system does only use integers, we need to convert the float64 back to int.
+	// problem is that the elo system should not leak elo. for that reason, we need to put the remainders of divisons anywhere.
+	// this is where the underdog commes into play, it is ref to the participant with the largest positive difference in the game.
+	// at the end of the calculations the underdog rating bonus is added to the participants rating update.
+	// all remainders are added to this underdog rating bonus in order to prevent elo leaking,
+	// because this can lead to a negative underdog bonus there is a UNDERDOG_BONUS_MULTIPLICATOR constant, which is removed from every teams rating update
+	// and added to the underdogRatingBonus. this increases the value of the underdog bonus and heavily reduces the chance of a negative underdog bonus.
+	var underdogRef *ParticipantOutput = nil
+	var underdogDifference float64 = 0.0
+	underdogRatingBonus := float64(len(teams) * UNDERDOG_BONUS_MULTIPLICATOR)
+
 	outputParticipants := []ParticipantOutput{}
 	for _, entity := range teams {
+		setUnderdog := false
+
 		// hypothesis is the percentage of rating in this game
-		hypothesis := entity.Rating / combinedRating
+		hypothesis := float64(entity.Rating) / float64(combinedRating)
 		// evidence is the percentage of points in this game
-		evidence := entity.Points / combinedPoints
+		evidence := float64(entity.Points) / float64(combinedPoints)
 
-		// update is the difference between hypothesis and evidence converted to elo with the maxLossNumber
-		update := maxLossNumber * (evidence - hypothesis)
+		// calculate the difference, if the difference is positive and larger then the previous
+		// underdogDiff, the underdog flag is set for this team.
+		difference := evidence - hypothesis
+		if difference > 0 && difference > underdogDifference {
+			underdogDifference = difference
+			setUnderdog = true
+		}
 
+		fmt.Println("Diff ", difference)
+
+		// underdog bonus multiplicator is removed
+		baseUpdate := (float64(maxLossNumber) * (evidence - hypothesis)) - UNDERDOG_BONUS_MULTIPLICATOR
+		fmt.Println("Base ", baseUpdate)
+		// integer frac of the update is used for further calculations.
+		updateNum := int(baseUpdate)
+		// remaining float frac is shifted to the underdog bonus as we don't want to leak this.
+		underdogRatingBonus += baseUpdate - float64(updateNum)
+
+		// acquire the rating update per participant.
+		// larger teams get smaller individual updates, as each member has less game impact.
+		individualUpdate := updateNum / len(entity.Participants)
+
+		// add the remainder of the update split per participant to the underdog bonus.
+		underdogRatingBonus += float64(updateNum % len(entity.Participants))
+
+		// flag to track the highest points reached in this team.
+		maxPoints := 0
 		for _, part := range entity.Participants {
-			outputParticipants = append(outputParticipants, ParticipantOutput{
+			output := ParticipantOutput{
 				UserRef:      part.UserRef,
-				RatingUpdate: update,
+				Underdog:     false,
+				RatingUpdate: individualUpdate,
 				Team:         part.Team,
 				Rating:       part.Rating,
 				Points:       part.Points,
 				Placement:    part.Placement,
-			})
+			}
+			outputParticipants = append(outputParticipants, output)
+
+			// If underdog flag is set AND the participant has the most points of the team
+			// he is set as underdogRef (dough this can change later on).
+			if setUnderdog && part.Points > maxPoints {
+				maxPoints = part.Points
+				underdogRef = &output
+			}
 		}
 	}
+
+	// add underdog bonus. as we added all remainders to this, it should be an almost exact integer.
+	if underdogRef != nil {
+		underdogRef.RatingUpdate += int(math.Round(underdogRatingBonus))
+		underdogRef.Underdog = true
+	}
+
 	return outputParticipants
 }

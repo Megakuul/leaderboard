@@ -54,7 +54,7 @@ export const FetchUser = async (region, pagesize="", username="", elo="", lastpa
 
 /**
  * @typedef {Object} UpdateUserRequest
- * @property {UpdateUserRequestUser} user_update
+ * @property {UpdateUserRequestUser} user_updates
  */
 
 /**
@@ -102,6 +102,7 @@ export const UpdateUser = async (userData) => {
 /**
  * @typedef {Object} FetchGameResponseParticipant
  * @property {string} username
+ * @property {boolean} underdog
  * @property {number} team
  * @property {number} placement
  * @property {number} points
@@ -115,7 +116,8 @@ export const UpdateUser = async (userData) => {
  * @property {string} gameid
  * @property {string} date
  * @property {boolean} readonly
- * @property {FetchGameResponseParticipant[]} participants
+ * @property {number} expires_in
+ * @property {Object.<string, FetchGameResponseParticipant>} participants
  */
 
 /**
@@ -158,34 +160,14 @@ export const FetchGame = async (gameid="", date="") => {
 
 /**
  * @typedef {Object} AddGameRequest
- * @property {string} placement_points
+ * @property {number} placement_points
  * @property {AddGameRequestParticipant[]} participants
- */
-
-/**
- * @typedef {Object} AddGameResponseParticipant
- * @property {string} username
- * @property {number} team
- * @property {number} placement
- * @property {number} points
- * @property {number} elo
- * @property {number} elo_update
- * @property {boolean} confirmed
- */
-
-/**
- * @typedef {Object} AddGameResponseGame
- * @property {string} gameid
- * @property {string} date
- * @property {boolean} readonly
- * @property {number} expires_in
- * @property {FetchGameResponseParticipant[]} participants
  */
 
 /**
  * @typedef {Object} AddGameResponse
  * @property {string} message
- * @property {FetchGameResponseGame} game
+ * @property {string} gameid
  */
 
 /**
@@ -206,6 +188,8 @@ export const AddGame = async (gameData) => {
   })
   if (res.ok) {
     return await res.json();
+  } else if (res.status === 401) {
+    RequestTokens()
   } else {
     throw new Error(await res.text())
   }

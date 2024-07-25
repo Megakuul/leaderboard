@@ -414,6 +414,8 @@ Resources:
   LeaderboardApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      # If you want to allow other origins to access the api, you can set this property.
+      # CorsConfiguration: "*"
       Auth:
         Authorizers:
           OAuth2Authorizer:
@@ -423,7 +425,7 @@ Resources:
             JwtConfiguration:
               issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${LeaderboardCognitoUserPool}
               audience:
-                - !Ref LeaderboardCognitoUserPool
+                - !GetAtt LeaderboardCognitoUserPoolClient.ClientId
 
         DefaultAuthorizer: OAuth2Authorizer
 
@@ -521,6 +523,7 @@ Resources:
           GAMETABLE: !Ref LeaderboardGameTable
           MAILTEMPLATE: !Sub "leaderboard-confirmation-template"
           MAILSENDER: !Sub "noreply@${LeaderboardDomain}"
+          MAXIMUM_PARTICIPANTS: 40
           CONFIRM_SECRET_LENGTH: 20
           HOURS_UNTIL_EXPIRED: 24
           MAX_LOSS_NUMBER: 40
@@ -536,15 +539,19 @@ Resources:
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/noreply@${LeaderboardDomain}"
+              Action: 
+                - "ses:SendBulkEmail"
+                - "ses:SendBulkTemplatedEmail"
+            - Effect: Allow
               Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${LeaderboardDomain}"
               Action: 
                 - "ses:SendBulkEmail"
-              Condition:
-                StringEquals:
-                  ses:FromAddress: "noreply@${LeaderboardDomain}"
+                - "ses:SendBulkTemplatedEmail"
             - Effect: Allow
-              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/${LeaderboardDomain}-confirmation-template"
-              Action: 
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/leaderboard-confirmation-template"
+              Action:
+                - "ses:SendBulkTemplatedEmail"
                 - "ses:GetEmailTemplate"
               
   LeaderboardGameConfirmFunc:
@@ -609,9 +616,9 @@ Outputs:
         - "\n"
         - - ""
           - ""
-          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName1} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue1}"
-          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName2} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue2}"
-          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName3} TXT ${LeaderboardEmailIdentity.DkimDNSTokenValue3}"
+          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName1} CNAME ${LeaderboardEmailIdentity.DkimDNSTokenValue1}"
+          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName2} CNAME ${LeaderboardEmailIdentity.DkimDNSTokenValue2}"
+          - Fn::Sub: "${LeaderboardEmailIdentity.DkimDNSTokenName3} CNAME ${LeaderboardEmailIdentity.DkimDNSTokenValue3}"
   SPFEntries:
     Description: "spf entry that must be set on the leaderboard domain"
     Value: !Sub "${LeaderboardDomain} TXT v=spf1 include:amazonses.com -all"

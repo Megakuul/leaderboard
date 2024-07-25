@@ -5,6 +5,7 @@ package query
 
 type ParticipantOutput struct {
 	Username  string `dynamodbav:"username" json:"username"`
+	Underdog  bool   `dynamodbav:"underdog" json:"underdog"`
 	Team      int    `dynamodbav:"team" json:"team"`
 	Placement int    `dynamodbav:"placement" json:"placement"`
 	Points    int    `dynamodbav:"points" json:"points"`
@@ -17,5 +18,6 @@ type GameOutput struct {
 	GameId       string                       `dynamodbav:"gameid" json:"gameid"`
 	Date         string                       `dynamodbav:"game_date" json:"date"`
 	Readonly     bool                         `dynamodbav:"readonly" json:"readonly"`
+	ExpiresIn    int                          `dynamodbav:"expires_in" json:"expires_in"`
 	Participants map[string]ParticipantOutput `dynamodbav:"participants" json:"participants"`
 }

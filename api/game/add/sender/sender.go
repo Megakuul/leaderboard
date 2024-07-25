@@ -58,7 +58,7 @@ func SendConfirmMails(sesClient *sesv2.Client, ctx context.Context, senderMail, 
 		})
 	}
 
-	_, err := sesClient.SendBulkEmail(ctx, &sesv2.SendBulkEmailInput{
+	result, err := sesClient.SendBulkEmail(ctx, &sesv2.SendBulkEmailInput{
 		BulkEmailEntries: emailDestinations,
 		FromEmailAddress: aws.String(senderMail),
 		DefaultContent: &types.BulkEmailContent{
@@ -69,7 +69,12 @@ func SendConfirmMails(sesClient *sesv2.Client, ctx context.Context, senderMail, 
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to send templated email to SES")
+		return fmt.Errorf("failed to send email: %v", err)
+	}
+	for _, entryResult := range result.BulkEmailEntryResults {
+		if entryResult.Status == types.BulkEmailStatusFailed {
+			return fmt.Errorf("failed to send email: %s", *entryResult.Error)
+		}
 	}
 	return nil
 }

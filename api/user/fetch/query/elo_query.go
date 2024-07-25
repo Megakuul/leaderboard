@@ -22,7 +22,7 @@ func FetchByElo(dynamoClient *dynamodb.Client, ctx context.Context, tableName st
 			"#elo":         "elo",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":user_region": &types.AttributeValueMemberN{Value: region},
+			":user_region": &types.AttributeValueMemberS{Value: region},
 			":elo":         &types.AttributeValueMemberN{Value: elo},
 		},
 		KeyConditionExpression: aws.String("#user_region = :user_region AND #elo <= :elo"),

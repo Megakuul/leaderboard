@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <h1 bind:this={leaderboardTitle} class="top-96 text-7xl my-12">Leaderboard</h1>
+    <h1 bind:this={leaderboardTitle} class="top-96 text-5xl sm:text-7xl my-12">Leaderboard</h1>
 
     <Leaderboard></Leaderboard>
   </section>

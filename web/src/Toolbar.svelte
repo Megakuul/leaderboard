@@ -41,7 +41,7 @@
         <Button type="submit" on:click={async () => {
           try {
             syncButtonState = true;
-            await UpdateUser({ user_update: {
+            await UpdateUser({ user_updates: {
               title: syncTitleInput,
               iconurl: syncIconInput,
             }})

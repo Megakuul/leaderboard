@@ -38,16 +38,16 @@ func UpsertUser(dynamoClient *dynamodb.Client, ctx context.Context, baseElo, tab
 			"#title":       "title",
 			"#iconurl":     "iconurl",
 			"#email":       "email",
-			"#user_region": "region",
+			"#user_region": "user_region",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":username": &types.AttributeValueMemberS{Value: claims["preferred_username"]},
-			":title":    &types.AttributeValueMemberS{Value: userUpdate.Title},
-			":iconurl":  &types.AttributeValueMemberS{Value: userUpdate.IconURL},
-			":email":    &types.AttributeValueMemberS{Value: claims["email"]},
-			":region":   &types.AttributeValueMemberS{Value: region},
+			":username":    &types.AttributeValueMemberS{Value: claims["preferred_username"]},
+			":title":       &types.AttributeValueMemberS{Value: userUpdate.Title},
+			":iconurl":     &types.AttributeValueMemberS{Value: userUpdate.IconURL},
+			":email":       &types.AttributeValueMemberS{Value: claims["email"]},
+			":user_region": &types.AttributeValueMemberS{Value: region},
 		},
-		UpdateExpression: aws.String("SET #username = :username, #title = :title, #iconurl = :iconurl, #email = :email, #user_region = :region"),
+		UpdateExpression: aws.String("SET #username = :username, #title = :title, #iconurl = :iconurl, #email = :email, #user_region = :user_region"),
 		ReturnValues:     types.ReturnValueAllNew,
 	})
 	if err != nil {

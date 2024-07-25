@@ -18,6 +18,7 @@ import (
 type ParticipantInput struct {
 	Subject       string `dynamodbav:"subject"`
 	Username      string `dynamodbav:"username"`
+	Underdog      bool   `dynamodbav:"underdog"`
 	Team          int    `dynamodbav:"team"`
 	Placement     int    `dynamodbav:"placement"`
 	Points        int    `dynamodbav:"points"`
@@ -35,26 +36,11 @@ type GameInput struct {
 	Partcipants map[string]ParticipantInput `dynamodbav:"participants"`
 }
 
-type ParticipantOutput struct {
-	Username  string `dynamodbav:"username" json:"username"`
-	Placement int    `dynamodbav:"placement" json:"placement"`
-	Points    int    `dynamodbav:"points" json:"points"`
-	Elo       int    `dynamodbav:"elo" json:"elo"`
-	EloUpdate int    `dynamodbav:"elo_update" json:"elo_update"`
-	Confirmed bool   `dynamodbav:"confirmed" json:"confirmed"`
-}
+func InsertGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, participants map[string]ParticipantInput, expirationTime int) (string, error) {
+	gameId := uuid.New().String()
 
-type GameOutput struct {
-	GameId      string                      `dynamodbav:"gameid" json:"gameid"`
-	Date        string                      `dynamodbav:"game_date" json:"date"`
-	Readonly    bool                        `dynamodbav:"readonly" json:"readonly"`
-	ExpiresIn   int                         `dynamodbav:"expires_in" json:"expires_in"`
-	Partcipants map[string]ParticipantInput `dynamodbav:"participants" json:"participants"`
-}
-
-func InsertGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName string, participants map[string]ParticipantInput, expirationTime int) (*GameOutput, error) {
 	gameInput := GameInput{
-		GameId:      uuid.New().String(),
+		GameId:      gameId,
 		Date:        time.Now().Format("2006-01-02"),
 		Readonly:    false,
 		ExpiresIn:   expirationTime,
@@ -62,22 +48,17 @@ func InsertGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName st
 	}
 	gameInputSerialized, err := attributevalue.MarshalMap(&gameInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize put input")
+		return "", fmt.Errorf("failed to serialize put input")
 	}
 
-	output, err := dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName:    aws.String(tableName),
 		Item:         gameInputSerialized,
-		ReturnValues: types.ReturnValueAllNew,
+		ReturnValues: types.ReturnValueNone,
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	var gameOutput GameOutput
-	if err := attributevalue.UnmarshalMap(output.Attributes, &gameOutput); err != nil {
-		return nil, fmt.Errorf("failed to deserialize put output")
-	}
-
-	return &gameOutput, nil
+	return gameId, nil
 }

@@ -45,10 +45,10 @@ func run() error {
 	if hoursUntilExpired, err := strconv.Atoi(os.Getenv("HOURS_UNTIL_EXPIRED")); err == nil {
 		HOURS_UNTIL_EXPIRED = hoursUntilExpired
 	}
-	if maximumParticipants, err := strconv.Atoi(os.Getenv("MAXIMUM_PARTICIPANTS")); err != nil {
+	if maximumParticipants, err := strconv.Atoi(os.Getenv("MAXIMUM_PARTICIPANTS")); err == nil {
 		MAXIMUM_PARTICIPANTS = maximumParticipants
 	}
-	if maxLossNumber, err := strconv.Atoi(os.Getenv("MAX_LOSS_NUMBER")); err != nil {
+	if maxLossNumber, err := strconv.Atoi(os.Getenv("MAX_LOSS_NUMBER")); err == nil {
 		MAX_LOSS_NUMBER = maxLossNumber
 	}
 
