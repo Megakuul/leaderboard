@@ -3,6 +3,7 @@ import { RequestTokens } from "./auth";
 /**
  * @typedef {Object} FetchUserResponseUser
  * @property {string} username
+ * @property {boolean} disabled
  * @property {string} region
  * @property {string} title
  * @property {string} iconurl
@@ -50,6 +51,7 @@ export const FetchUser = async (region, pagesize="", username="", elo="", lastpa
  * @typedef {Object} UpdateUserRequestUser
  * @property {string} title
  * @property {string} iconurl
+ * @property {boolean} disabled
  */
 
 /**
@@ -60,6 +62,7 @@ export const FetchUser = async (region, pagesize="", username="", elo="", lastpa
 /**
  * @typedef {Object} UpdateUserResponseUser
  * @property {string} username
+ * @property {boolean} disabled
  * @property {string} region
  * @property {string} title
  * @property {string} email

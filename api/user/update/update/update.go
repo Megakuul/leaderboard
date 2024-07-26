@@ -14,12 +14,14 @@ import (
 )
 
 type UserInput struct {
-	Title   string `json:"title"`
-	IconURL string `json:"iconurl"`
+	Title    string `json:"title"`
+	IconURL  string `json:"iconurl"`
+	Disabled bool   `json:"disabled"`
 }
 
 type UserOutput struct {
 	Username string `dynamodbav:"username" json:"username"`
+	Disabled bool   `dynamodbav:"disabled" json:"disabled"`
 	Region   string `dynamodbav:"user_region" json:"region"`
 	Title    string `dynamodbav:"title" json:"title"`
 	Email    string `dynamodbav:"email" json:"email"`
@@ -36,18 +38,20 @@ func UpsertUser(dynamoClient *dynamodb.Client, ctx context.Context, baseElo, tab
 		ExpressionAttributeNames: map[string]string{
 			"#username":    "username",
 			"#title":       "title",
+			"#disabled":    "disabled",
 			"#iconurl":     "iconurl",
 			"#email":       "email",
 			"#user_region": "user_region",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":username":    &types.AttributeValueMemberS{Value: claims["preferred_username"]},
+			":disabled":    &types.AttributeValueMemberBOOL{Value: userUpdate.Disabled},
 			":title":       &types.AttributeValueMemberS{Value: userUpdate.Title},
 			":iconurl":     &types.AttributeValueMemberS{Value: userUpdate.IconURL},
 			":email":       &types.AttributeValueMemberS{Value: claims["email"]},
 			":user_region": &types.AttributeValueMemberS{Value: region},
 		},
-		UpdateExpression: aws.String("SET #username = :username, #title = :title, #iconurl = :iconurl, #email = :email, #user_region = :user_region"),
+		UpdateExpression: aws.String("SET #username = :username, #disabled = :disabled, #title = :title, #iconurl = :iconurl, #email = :email, #user_region = :user_region"),
 		ReturnValues:     types.ReturnValueAllNew,
 	})
 	if err != nil {

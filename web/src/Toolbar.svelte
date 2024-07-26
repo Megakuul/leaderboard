@@ -7,7 +7,9 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { Input } from "$lib/components/ui/input";
   import { toast } from "svelte-sonner";
-    import { Badge } from "$lib/components/ui/badge";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Label } from "$lib/components/ui/label";
+  import { Switch } from "$lib/components/ui/switch";
 
   /** @type {HTMLHeadingElement} */
   export let leaderboardTitle;
@@ -19,6 +21,8 @@
   let syncTitleInput;
   /** @type {string} */
   let syncIconInput;
+  /** @type {boolean} */
+  let syncDisabled = false;
   /** @type {boolean} */
   let syncButtonState = false;
 </script>
@@ -54,6 +58,10 @@
       </Dialog.Header>
       <Input bind:value={syncTitleInput} type="text" placeholder="Civ Jesus Nutshell" class="max-w-xs" />
       <Input bind:value={syncIconInput} type="url" placeholder="https://gravatar.com/avatar/xyz?size=256" class="max-w-xs" />
+      <div class="flex items-center space-x-2">
+        <Switch id="disable-user" bind:checked={syncDisabled} />
+        <Label for="disable-user">Disable User</Label>
+      </div>
       <Dialog.Footer>
         <Button type="submit" on:click={async () => {
           try {
@@ -61,6 +69,7 @@
             await UpdateUser({ user_updates: {
               title: syncTitleInput,
               iconurl: syncIconInput,
+              disabled: syncDisabled,
             }})
             toast.success("Synchronized user")
           } catch (err) {

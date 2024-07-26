@@ -79,7 +79,10 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 	for _, part := range req.Participants {
 		user, err := query.FetchByUsername(dynamoClient, ctx, USERTABLE, part.Username)
 		if err != nil {
-			return nil, http.StatusNotFound, fmt.Errorf("failed to add game: %v", err)
+			return nil, http.StatusNotFound, fmt.Errorf("failed to lookup %s: %v", part.Username, err)
+		}
+		if user.Disabled {
+			return nil, http.StatusNotFound, fmt.Errorf("failed to lookup %s: user is disabled", part.Username)
 		}
 		ratingInputParticipants = append(ratingInputParticipants, rating.ParticipantInput{
 			UserRef:   user,

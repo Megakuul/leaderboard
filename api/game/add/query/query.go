@@ -5,6 +5,7 @@ package query
 
 type UserOutput struct {
 	Subject  string `dynamodbav:"subject"`
+	Disabled bool   `dynamodbav:"disabled"`
 	Username string `dynamodbav:"username"`
 	Elo      int    `dynamodbav:"elo"`
 	Email    string `dynamodbav:"email"`

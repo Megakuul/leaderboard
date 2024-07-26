@@ -133,6 +133,7 @@ Resources:
             </div>
             
             <p style="margin-top: 20px; font-size: 0.9em; color: #7f8c8d;">If you believe there's an error in these results, please contact the game organizer.</p>
+            <p style="margin-top: 20px; font-size: 0.9em; color: #7f8c8d;">You can opt out of future emails at any time by disabling your account through the synchronisation option on our website.</p>
           </div>
         TextPart: !Sub |
           Game {{gameid}} Results
@@ -146,6 +147,8 @@ Resources:
           https://${LeaderboardDomain}/api/game/confirm?gameid={{gameid}}&username={{username}}&code={{secret}}
 
           If you believe there's an error in these results, please contact the game organizer.
+
+          You can opt out of future emails at any time by disabling your account via the synchronisation option on our website.
        
 
 

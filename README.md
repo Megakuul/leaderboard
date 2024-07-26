@@ -122,6 +122,7 @@ Fetches users from the leaderboard.
       "users": [
         {
           "username": "Wendelin Knack",
+          "disabled": false,
           "region": "eu-central-1",
           "title": "Wendig",
           "iconurl": "https://urltoicon",
@@ -149,7 +150,8 @@ The region is updated based on the aws region of the called function.
     {
       "user_updates": {
         "title": "Wendig",
-        "iconurl": "https://urltoicon"
+        "iconurl": "https://urltoicon",
+        "disabled": false
       }
     }
     ```
@@ -162,6 +164,7 @@ The region is updated based on the aws region of the called function.
       "message": "success message xy",
       "updated_user": {
         "username": "Wendelin Knack",
+        "disabled": false,
         "region": "eu-central-1",
         "title": "Wendig",
         "email": "wendelin@panzerknacker.org",

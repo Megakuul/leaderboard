@@ -59,7 +59,24 @@
   let queryResultError;
 
   /** @type {import("$lib/api/actions").FetchUserResponseUser[]} */
-  let queryResults;
+  let queryResults = [
+    {
+      disabled: true,
+      elo: 15,
+      iconurl: "",
+      region: "eu-central-1",
+      title: "superkuul",
+      username: "Salami"
+    },
+    {
+      disabled: false,
+      elo: 15,
+      iconurl: "",
+      region: "eu-central-1",
+      title: "superkuul",
+      username: "Salami"
+    }
+  ];
 
   /** @type {boolean} */
   let loadPageButtonState;
@@ -256,7 +273,8 @@
 <div class="lg:w-9/12 my-10">
   {#if queryResults}
     {#each queryResults as result}
-      <div class="flex flex-row gap-4 items-center w-full bg-slate-950 bg-opacity-50 rounded-xl my-4 p-5">
+      <div class="flex flex-row gap-4 items-center w-full bg-slate-950 bg-opacity-50 rounded-xl my-4 p-5" 
+        class:opacity-50={result.disabled} title="{result.disabled?"disabled":""}">
         <Avatar.Root>
           <Avatar.Image src="{result.iconurl}" alt="{result.username} icon" />
           <Avatar.Fallback>AN</Avatar.Fallback>
