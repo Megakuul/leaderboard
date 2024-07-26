@@ -1,5 +1,5 @@
 <script>
-  import { UpdateUser } from "$lib/api/actions";
+  import { FetchUser, UpdateUser } from "$lib/api/actions";
   import { RequestTokens } from "$lib/api/auth";
   import { buttonVariants } from "$lib/components/ui/button";
   import LoaderCircle from "lucide-svelte/icons/loader-circle";
@@ -10,6 +10,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Label } from "$lib/components/ui/label";
   import { Switch } from "$lib/components/ui/switch";
+    import { onMount } from "svelte";
 
   /** @type {HTMLHeadingElement} */
   export let leaderboardTitle;
@@ -17,6 +18,11 @@
   /** @type {Date} */
   export let tokenExpirationTime;
 
+  /** @type {string} */
+  export let tokenUsername;
+
+  /** @type {import("$lib/api/actions.js").FetchUserResponseUser} */
+  let syncUserData;
   /** @type {string} */
   let syncTitleInput;
   /** @type {string} */
@@ -46,7 +52,20 @@
   <Button on:click={() => leaderboardTitle.scrollIntoView({ behavior: "smooth" })} variant="outline" class="w-60">
     Go to Leaderboard
   </Button>
-  <Dialog.Root>
+  <Dialog.Root onOpenChange={async (open) => {
+      if (open && tokenUsername && tokenExpirationTime?.getTime() > new Date().getTime()) {
+        try {
+          const response = await FetchUser("", "1", tokenUsername, "", "")
+          syncTitleInput = response.users[0].title;
+          syncIconInput = response.users[0].iconurl;
+          syncDisabled = response.users[0].disabled;
+        } catch (err) {
+          toast.error("Failed to load user", {
+            description: err.message,
+          })
+        }
+      }
+    }}>
     <Dialog.Trigger class="w-60 {buttonVariants({ variant: "outline" })}">Sync Account</Dialog.Trigger>
     <Dialog.Content>
       <Dialog.Header>

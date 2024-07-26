@@ -34,6 +34,22 @@ const getIDTokenExpiration = (idToken) => {
 }
 
 /**
+ * Acquire preferred_username. Returns "" on failure.
+ * @param {string} idToken 
+ * @returns {string}
+ */
+const getPreferredUsername = (idToken) => {
+  try {
+    const idTokenPayload = JSON.parse(
+      decodeBase64URL(idToken.split(".")[1])
+    )
+    return idTokenPayload.preferred_username;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Fetches the id_token from the url and inserts them to localstore.
  */
 export const GetTokens = () => {
@@ -43,6 +59,7 @@ export const GetTokens = () => {
 
   const idToken = params.get("id_token");
   const idTokenExp = getIDTokenExpiration(idToken);
+  const username = getPreferredUsername(idToken);
 
   // Removing search param from history.
   window.history.replaceState({}, "", `${window.location.origin}${window.location.pathname}`)
@@ -51,7 +68,10 @@ export const GetTokens = () => {
     localStorage.setItem("id_token", idToken);
   }
   if (idTokenExp) {
-    localStorage.setItem("id_token_exp", new Date(idTokenExp).toISOString())
+    localStorage.setItem("id_token_exp", new Date(idTokenExp).toISOString());
+  }
+  if (username) {
+    localStorage.setItem("id_token_username", username);
   }
 }
 

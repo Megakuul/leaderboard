@@ -39,8 +39,9 @@ In the next step you need to deploy the web application:
    VITE_COGNITO_DOMAIN=<CognitoEndpoint> VITE_COGNITO_CLIENT_ID=<CognitoClientID> VITE_LEADERBOARD_REGIONS=<DeploymentRegion> npm run build
    ```
 
-2. Upload to the S3 bucket (bucket name is provided in SAM output):
+2. Remove old assets and upload to the S3 bucket (bucket name is provided in SAM output):
    ```bash
+   aws s3 rm s3://<bucket-name>/assets --recursive
    aws s3 cp dist s3://<bucket-name> --recursive
    ```
 

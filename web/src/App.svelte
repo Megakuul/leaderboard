@@ -16,6 +16,7 @@
     GetTokens();
 
     tokenExpirationTime = new Date(localStorage.getItem("id_token_exp"))
+    tokenUsername = localStorage.getItem("id_token_username");
   })
 
   /** @type {HTMLHeadingElement} */
@@ -23,6 +24,9 @@
 
   /** @type {Date} */
   let tokenExpirationTime;
+
+  /** @type {string} */
+  let tokenUsername;
 </script>
 
 <Toaster />
@@ -36,7 +40,7 @@
     <p class="w-full text-sm sm:text-lg text-indigo-600 text-end font-bold">fighting for glory and honor</p>
   </section>
   <section class="flex flex-col items-center">
-    <Toolbar leaderboardTitle={leaderboardTitle} tokenExpirationTime={tokenExpirationTime}></Toolbar>
+    <Toolbar leaderboardTitle={leaderboardTitle} tokenExpirationTime={tokenExpirationTime} tokenUsername={tokenUsername}></Toolbar>
 
     <div class="w-full my-32 flex flex-col justify-around">
 
