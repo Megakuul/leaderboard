@@ -83,37 +83,46 @@
 
   /**
    * @param {number} index
-   * @param {number} layerFactor
-   * @param {boolean} skip
   */
-  const getColor = (index, layerFactor, skip) => {
+  const getColor = (index) => {
     if (Number.isNaN(index)) return undefined;
+
+    // Starting with index 1 instead of 0
+    index++;
 
     const COLORSPACE = 360;
 
-    const fraction = COLORSPACE / layerFactor;
+    // The color space is split up into layers which always contain 
+    // twice as much colors as the previous layer. To obtain the layer in constant time
+    // log2 is used which returns the power on 2 required to get the input number it takes.
+    // This number is usually going to have some fraction in it, however we need the layer not the exact power,
+    // so we floor the fraction and get the power of 2 that leads us to the first index of the layer.
+    const LAYER = Math.floor(Math.log2(index));
+    // For later calculations we need two values:
+    // 1. The amount of numbers in this layer.
+    // 2. The starting index of this layer.
+    // Because we used log2 and the layer represents a power of two, both values can be obtained by just using the layer as power of two.
+    // This returns the starting index of this layer, and because every layer doubles in size, this index is also the length of this layer. 
+    const BASE = Math.pow(2, LAYER);
 
-    let currentColor = 0;
+    // As explained above we have the first index of the layer, now we also need the offset so that we can get the
+    // exact index inside the layer. For this we just take the starting index and subtract it from the index.
+    const LAYER_OFFSET = index - BASE;
 
-    let skipValue = false;
-    while ((currentColor += fraction) <= COLORSPACE) {
-      if (skipValue && skip) {
-        skipValue = false;
-        continue;
-      } else {
-        skipValue = true;
-      }
-
-      if ((index--) < 1) {
-        return currentColor;
-      }
-    }
-    return getColor(index, layerFactor * 2, true);
+    // Now that we have the base and the layer offset of the index, we can use this information and apply it to the hue 360 color space.
+    // To do this, we calculate the multiplier that is used for the layer offset. We do now need to acquire numbers between the previous layer,
+    // therefore we get a multiplier which is just half the size of our actual increment steps per index.
+    const MULTIPLIER = COLORSPACE / (BASE * 2);
+    
+    // Now that we have a multiplier with the half size of the actual distance between index steps, we need to multiply the layer offset by two.
+    // This would give us the values that were present on the previous layer, we do now add + 1 to the layer offset to shift the values.
+    // This means that we do now essentially get the number between multiplier i and multiplier j from the previous layer.
+    return MULTIPLIER * (LAYER_OFFSET * 2 + 1);
   }
 </script>
 
 <div class="bg-gray-950 bg-opacity-70 my-12 flex flex-col lg:flex-row items-start lg:items-center gap-2 justify-between p-3 rounded-lg lg:w-9/12">
-  <Dialog.Root>
+  <Dialog.Root preventScroll="{true}">
     <Dialog.Trigger class="w-full lg:w-40 {buttonVariants({ variant: "outline" })}">Add Game</Dialog.Trigger>
     <Dialog.Content>
       {#if !addGameResult}
@@ -139,9 +148,11 @@
 
         <ScrollArea class="max-h-96 w-full p-2">
           {#each addParticipants as participant}
-            <div transition:fade={{ delay: 250, duration: 300 }} class="flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
+            <div transition:fade={{ delay: 250, duration: 300 }} 
+              style="background-color: rgba(0,0,0,0.2); background-color: hsl({getColor(participant.team)}, 80%, 30%);" 
+              class="flex flex-col gap-4 m-1 p-4 my-4 bg-opacity-60 rounded-lg">
+
               <Input bind:value={participant.username} type="text" placeholder="Username" class="w-full" />
-              <div>{getColor(participant.team, 4, false)}</div>
               <div class="flex flex-row gap-2">
                 <Select.Root portal={null} onSelectedChange={(v) => {
                   v && (participant.team = +v.value)
@@ -153,14 +164,32 @@
                     <Select.Group>
                       <Select.Label>Team</Select.Label>
                       {#each addParticipants as _, i}
-                        <Select.Item value={i} label={"Team " + i}>{"Team " + i}</Select.Item>
+                        <Select.Item
+                          style="color: rgba(255,255,255,0.6); color: hsl({getColor(i)}, 80%, 30%);"
+                          class="font-semibold"
+                          value={i} label={"Team " + i}>{"Team " + i}</Select.Item>
                       {/each}
                     </Select.Group>
                   </Select.Content>
                 </Select.Root>
 
-                <Input bind:value={participant.placement} on:input={(_) => participant.placement = +participant.placement} type="number" placeholder="Placement" class="w-full" />
-                <Input bind:value={participant.points} on:input={(_) => participant.points = +participant.points} type="number" placeholder="Points" class="w-full" />
+                <Select.Root portal={null} onSelectedChange={(v) => {
+                  v && (participant.placement = +v.value)
+                }}>
+                  <Select.Trigger class="w-full">
+                    <Select.Value placeholder="Placement" />
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Group>
+                      <Select.Label>Placement</Select.Label>
+                      {#each addParticipants as _, i}
+                        <Select.Item class="font-semibold" value={i+1} label={i+1}>{i+1}</Select.Item>
+                      {/each}
+                    </Select.Group>
+                  </Select.Content>
+                </Select.Root>
+
+                <Input bind:value={participant.points} on:input={(_) => participant.points = +participant.points} type="number" min="0" max="10000" placeholder="Points" class="w-full" />
               </div>
             </div>
           {/each}
@@ -202,7 +231,9 @@
 
         <ScrollArea class="max-h-96 w-full p-2">
           {#each Object.entries(addGameResult.participants) as [_, participant]}
-            <div class="relative flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
+            <div 
+              style="background-color: rgba(0,0,0,0.2); background-color: hsl({getColor(participant.team)}, 80%, 30%);"
+              class="relative flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
               <div class="absolute z-40 top-0 right-0 flex flex-row gap-4">
                 {#if !participant.confirmed}
                   <Badge class="bg-orange-500">Not Confirmed</Badge>
@@ -218,7 +249,6 @@
               </div>
               <Input disabled value={participant.username} type="text" placeholder="Username" class="w-full" />
               <div class="flex flex-row gap-2">
-                <Input disabled value={participant.team} type="number" placeholder="Team" class="w-full" />
                 <Input disabled value={participant.placement} type="number" placeholder="Placement" class="w-full" />
                 <Input disabled value={participant.points} type="number" placeholder="Points" class="w-full" />
               </div>
