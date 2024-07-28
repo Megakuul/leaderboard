@@ -115,6 +115,10 @@ func runAddHandler(dynamoClient *dynamodb.Client, sesClient *sesv2.Client, reque
 			EloUpdate: part.RatingUpdate,
 		})
 
+		if _, ok := gameInputParticipants[part.UserRef.Username]; ok {
+			return nil, http.StatusBadRequest, fmt.Errorf("participant: %s found twice", part.UserRef.Username)
+		}
+
 		gameInputParticipants[part.UserRef.Username] = put.ParticipantInput{
 			Subject:       part.UserRef.Subject,
 			Username:      part.UserRef.Username,

@@ -36,16 +36,10 @@ type ParticipantOutput struct {
 	Placement    int
 }
 
-// CalculateRatingUpdate uses a simple algorithm to update the rating for all participants of a game.
-// It operates in four fundamental steps:
-// 1. Reverse sort participants by placement and increment points by placementPoints * index.
-// 2. Add participants to teams (based on the participants "team" tag) and sum all the participants rating and points per team.
-// 3. Create a hypothesis & evidence value for every team. This means simply calculating the percentage of rating & points based on the current game.
-// 4. Calculate the difference between hypothesis & evidence multiply it with maxLossNumber and setting it as rating update on all participants of the team.
 func CalculateRatingUpdate(participants []ParticipantInput, placementPoints int, maxLossNumber int) []*ParticipantOutput {
 	// Reverse sort, to assign points based on index position
 	sort.Slice(participants, func(i, j int) bool {
-		return participants[i].Placement < participants[j].Placement
+		return participants[i].Placement > participants[j].Placement
 	})
 
 	// teams represent a intermediate calculation entity.
