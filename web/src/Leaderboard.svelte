@@ -15,6 +15,7 @@
   import { fade } from "svelte/transition";
   import Gameview from "./Gameview.svelte";
   import { GetColor } from "$lib/GetColor";
+    import { readonly } from "svelte/store";
 
   /** @type {string} */
   const REGIONS = import.meta.env.VITE_LEADERBOARD_REGIONS;
@@ -99,10 +100,21 @@
     <Dialog.Header>
       <Dialog.Title>Game Analysis {analyzeGameResult.gameid}</Dialog.Title>
       <Dialog.Description>
-        Expires at {new Date(analyzeGameResult.expires_in * 1000).toLocaleString()}.
+        {#if analyzeGameResult.readonly}
+          Game is confirmed and readonly.
+        {:else}
+          Expires at {new Date(analyzeGameResult.expires_in * 1000).toLocaleString()}.
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
     <Gameview Game={analyzeGameResult} />
+    <Dialog.Footer>
+      <Button on:click={() => {
+        analyzeGameResult = undefined;
+      }}>
+        Clear Analysis
+      </Button>
+    </Dialog.Footer>
     {:else}
     <Dialog.Header>
       <Dialog.Title>Analyze Game</Dialog.Title>

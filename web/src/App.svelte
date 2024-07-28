@@ -45,7 +45,7 @@
     <div class="w-full my-32 flex flex-col justify-around">
 
       <div class="my-16 flex flex-col lg:flex-row items-center justify-around">
-        <h1 class="text-3xl sm:text-5xl font-bold text-shadow text-slate-200 animate-pulse">Track your Games</h1>
+        <h1 class="text-center text-3xl sm:text-5xl font-bold text-shadow text-slate-200 animate-pulse">Track your Games</h1>
         <div class="ml-12 my-12 p-8 w-96 h-96 rounded-lg bg-gray-950 border-black border-4 card right">
           <p class="text-2xl text-transparent bg-clip-text bg-gradient-to-br from-red-900 to-indigo-600 text-opacity-70">
             Log your Game Results and watch them shape the Leaderboard
@@ -56,7 +56,7 @@
       </div>
 
       <div class="my-16 flex flex-col lg:flex-row-reverse items-center justify-around">
-        <h1 class="text-3xl sm:text-5xl font-bold text-shadow text-slate-200 animate-pulse">Compete against others</h1>
+        <h1 class="text-center text-3xl sm:text-5xl font-bold text-shadow text-slate-200 animate-pulse">Compete against others</h1>
         <div class="ml-12 my-12 p-8 w-96 h-96 rounded-lg bg-gray-950 border-black border-4 card left">
           <p class="text-2xl text-transparent bg-clip-text bg-gradient-to-br from-red-900 to-indigo-600 text-opacity-70">
             Challenge Opponents and let a sophisticated Algorithm refine your Rating based on their anticipated Strength
@@ -67,7 +67,7 @@
       </div>
 
       <div class="my-16 flex flex-col lg:flex-row items-center justify-around">
-        <h1 class="text-3xl sm:text-5xl font-bold text-shadow text-slate-200 animate-pulse">Dominate the Leaderboard</h1>
+        <h1 class="text-center text-3xl sm:text-5xl font-bold text-shadow text-slate-200 animate-pulse">Dominate the Leaderboard</h1>
         <div class="ml-12 my-12 p-8 w-96 h-96 rounded-lg bg-gray-950 border-black border-4 card right">
           <p class="text-2xl text-transparent bg-clip-text bg-gradient-to-br from-red-900 to-indigo-600 text-opacity-70">
             Conquer Matches, earn your Points, and storm the Leaderboard
