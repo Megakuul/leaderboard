@@ -59,24 +59,7 @@
   let queryResultError;
 
   /** @type {import("$lib/api/actions").FetchUserResponseUser[]} */
-  let queryResults = [
-    {
-      disabled: true,
-      elo: 15,
-      iconurl: "",
-      region: "eu-central-1",
-      title: "superkuul",
-      username: "Salami"
-    },
-    {
-      disabled: false,
-      elo: 15,
-      iconurl: "",
-      region: "eu-central-1",
-      title: "superkuul",
-      username: "Salami"
-    }
-  ];
+  let queryResults;
 
   /** @type {boolean} */
   let loadPageButtonState;
@@ -97,6 +80,36 @@
       })
     }
   })
+
+  /**
+   * @param {number} index
+   * @param {number} layerFactor
+   * @param {boolean} skip
+  */
+  const getColor = (index, layerFactor, skip) => {
+    if (Number.isNaN(index)) return undefined;
+
+    const COLORSPACE = 360;
+
+    const fraction = COLORSPACE / layerFactor;
+
+    let currentColor = 0;
+
+    let skipValue = false;
+    while ((currentColor += fraction) <= COLORSPACE) {
+      if (skipValue && skip) {
+        skipValue = false;
+        continue;
+      } else {
+        skipValue = true;
+      }
+
+      if ((index--) < 1) {
+        return currentColor;
+      }
+    }
+    return getColor(index, layerFactor * 2, true);
+  }
 </script>
 
 <div class="bg-gray-950 bg-opacity-70 my-12 flex flex-col lg:flex-row items-start lg:items-center gap-2 justify-between p-3 rounded-lg lg:w-9/12">
@@ -128,21 +141,24 @@
           {#each addParticipants as participant}
             <div transition:fade={{ delay: 250, duration: 300 }} class="flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
               <Input bind:value={participant.username} type="text" placeholder="Username" class="w-full" />
+              <div>{getColor(participant.team, 4, false)}</div>
               <div class="flex flex-row gap-2">
-                <Select.Root portal={null} bind:selected={participant.team}>
+                <Select.Root portal={null} onSelectedChange={(v) => {
+                  v && (participant.team = +v.value)
+                }}>
                   <Select.Trigger class="w-full">
-                    <Select.Value placeholder="Select a query type" />
+                    <Select.Value placeholder="Team" />
                   </Select.Trigger>
                   <Select.Content>
                     <Select.Group>
-                      <Select.Label>Query Type</Select.Label>
+                      <Select.Label>Team</Select.Label>
                       {#each addParticipants as _, i}
-                        <Select.Item value={i} label={i}>{"Team " + i}</Select.Item>
+                        <Select.Item value={i} label={"Team " + i}>{"Team " + i}</Select.Item>
                       {/each}
                     </Select.Group>
                   </Select.Content>
                 </Select.Root>
-                <Input bind:value={participant.team} on:input={(_) => participant.team = +participant.team} type="number" placeholder="Team" class="w-full" />
+
                 <Input bind:value={participant.placement} on:input={(_) => participant.placement = +participant.placement} type="number" placeholder="Placement" class="w-full" />
                 <Input bind:value={participant.points} on:input={(_) => participant.points = +participant.points} type="number" placeholder="Points" class="w-full" />
               </div>
