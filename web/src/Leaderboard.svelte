@@ -13,10 +13,20 @@
   import { onMount } from "svelte";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { fade } from "svelte/transition";
-  import { Badge } from "$lib/components/ui/badge";
+  import Gameview from "./Gameview.svelte";
+  import { GetColor } from "$lib/GetColor";
 
   /** @type {string} */
   const REGIONS = import.meta.env.VITE_LEADERBOARD_REGIONS;
+
+  /** @type {boolean} */
+  let analyzeButtonState;
+
+  /** @type {string} */
+  let analyzeGameUUID;
+
+  /** @type {import("$lib/api/actions").FetchGameResponseGame} */
+  let analyzeGameResult = undefined;
 
   /** @type {boolean} */
   let addButtonState;
@@ -80,46 +90,52 @@
       })
     }
   })
-
-  /**
-   * @param {number} index
-  */
-  const getColor = (index) => {
-    if (Number.isNaN(index)) return undefined;
-
-    // Starting with index 1 instead of 0
-    index++;
-
-    const COLORSPACE = 360;
-
-    // The color space is split up into layers which always contain 
-    // twice as much colors as the previous layer. To obtain the layer in constant time
-    // log2 is used which returns the power on 2 required to get the input number it takes.
-    // This number is usually going to have some fraction in it, however we need the layer not the exact power,
-    // so we floor the fraction and get the power of 2 that leads us to the first index of the layer.
-    const LAYER = Math.floor(Math.log2(index));
-    // For later calculations we need two values:
-    // 1. The amount of numbers in this layer.
-    // 2. The starting index of this layer.
-    // Because we used log2 and the layer represents a power of two, both values can be obtained by just using the layer as power of two.
-    // This returns the starting index of this layer, and because every layer doubles in size, this index is also the length of this layer. 
-    const BASE = Math.pow(2, LAYER);
-
-    // As explained above we have the first index of the layer, now we also need the offset so that we can get the
-    // exact index inside the layer. For this we just take the starting index and subtract it from the index.
-    const LAYER_OFFSET = index - BASE;
-
-    // Now that we have the base and the layer offset of the index, we can use this information and apply it to the hue 360 color space.
-    // To do this, we calculate the multiplier that is used for the layer offset. We do now need to acquire numbers between the previous layer,
-    // therefore we get a multiplier which is just half the size of our actual increment steps per index.
-    const MULTIPLIER = COLORSPACE / (BASE * 2);
-    
-    // Now that we have a multiplier with the half size of the actual distance between index steps, we need to multiply the layer offset by two.
-    // This would give us the values that were present on the previous layer, we do now add + 1 to the layer offset to shift the values.
-    // This means that we do now essentially get the number between multiplier i and multiplier j from the previous layer.
-    return MULTIPLIER * (LAYER_OFFSET * 2 + 1);
-  }
 </script>
+
+<Dialog.Root preventScroll="{true}">
+  <Dialog.Trigger class="w-full lg:w-64 {buttonVariants({ variant: "ghost" })}">Analyze Game</Dialog.Trigger>
+  <Dialog.Content>
+    {#if analyzeGameResult}
+    <Dialog.Header>
+      <Dialog.Title>Game Analysis {analyzeGameResult.gameid}</Dialog.Title>
+      <Dialog.Description>
+        Expires at {new Date(analyzeGameResult.expires_in * 1000).toLocaleString()}.
+      </Dialog.Description>
+    </Dialog.Header>
+    <Gameview Game={analyzeGameResult} />
+    {:else}
+    <Dialog.Header>
+      <Dialog.Title>Analyze Game</Dialog.Title>
+      <Dialog.Description>
+        Enter the UUID of the Game you want to analyze.
+      </Dialog.Description>
+    </Dialog.Header>
+    <Input bind:value={analyzeGameUUID} type="text" placeholder="Game UUID" class="w-full" />
+    <Dialog.Footer>
+      <Button on:click={async () => {
+        try {
+          analyzeButtonState = true;
+          const fetchResponse = await FetchGame(analyzeGameUUID)
+          analyzeGameResult = fetchResponse.games[0];
+          toast.success("Analysis loaded")
+        } catch (err) {
+          toast.error("Failed to load game", {
+            description: err.message,
+          })
+        }
+        analyzeButtonState = false;
+        analyzeGameUUID = undefined;
+      }}>
+        {#if analyzeButtonState}
+          <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
+        {/if}
+        Analyze
+      </Button>
+    </Dialog.Footer>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>
+
 
 <div class="bg-gray-950 bg-opacity-70 my-12 flex flex-col lg:flex-row items-start lg:items-center gap-2 justify-between p-3 rounded-lg lg:w-9/12">
   <Dialog.Root preventScroll="{true}">
@@ -149,7 +165,7 @@
         <ScrollArea class="max-h-96 w-full p-2">
           {#each addParticipants as participant}
             <div transition:fade={{ delay: 250, duration: 300 }} 
-              style="background-color: rgba(0,0,0,0.2); background-color: hsl({getColor(participant.team)}, 80%, 30%);" 
+              style="background-color: rgba(0,0,0,0.2); background-color: hsl({GetColor(participant.team)}, 80%, 30%);" 
               class="flex flex-col gap-4 m-1 p-4 my-4 bg-opacity-60 rounded-lg">
 
               <Input bind:value={participant.username} type="text" placeholder="Username" class="w-full" />
@@ -165,7 +181,7 @@
                       <Select.Label>Team</Select.Label>
                       {#each addParticipants as _, i}
                         <Select.Item
-                          style="color: rgba(255,255,255,0.6); color: hsl({getColor(i)}, 80%, 30%);"
+                          style="color: rgba(255,255,255,0.6); color: hsl({GetColor(i)}, 80%, 30%);"
                           class="font-semibold"
                           value={i} label={"Team " + i}>{"Team " + i}</Select.Item>
                       {/each}
@@ -221,49 +237,22 @@
           </Button>
         </Dialog.Footer>
       {:else}
-        <Dialog.Header>
-          <Dialog.Title>Review Game {addGameResult.gameid}</Dialog.Title>
-          <Dialog.Description>
-            Participants received a confirmation email. 
-            All must confirm by {new Date(addGameResult.expires_in * 1000).toLocaleString()} or the game will be canceled.
-          </Dialog.Description>
-        </Dialog.Header>
-
-        <ScrollArea class="max-h-96 w-full p-2">
-          {#each Object.entries(addGameResult.participants) as [_, participant]}
-            <div 
-              style="background-color: rgba(0,0,0,0.2); background-color: hsl({getColor(participant.team)}, 80%, 30%);"
-              class="relative flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
-              <div class="absolute z-40 top-0 right-0 flex flex-row gap-4">
-                {#if !participant.confirmed}
-                  <Badge class="bg-orange-500">Not Confirmed</Badge>
-                {/if}
-                {#if participant.underdog}
-                  <Badge class="bg-indigo-700">Underdog</Badge>
-                {/if}
-                {#if participant.elo_update >= 0}
-                  <Badge class="bg-green-500">+{participant.elo_update}</Badge>
-                {:else}
-                  <Badge class="bg-red-600">{participant.elo_update}</Badge>
-                {/if}
-              </div>
-              <Input disabled value={participant.username} type="text" placeholder="Username" class="w-full" />
-              <div class="flex flex-row gap-2">
-                <Input disabled value={participant.placement} type="number" placeholder="Placement" class="w-full" />
-                <Input disabled value={participant.points} type="number" placeholder="Points" class="w-full" />
-              </div>
-            </div>
-          {/each}
-        </ScrollArea>
-
-        <Dialog.Footer>
-          <Button on:click={() => {
-            addGameResult = undefined;
-            addParticipants = [];
-          }}>
-            Create new Game
-          </Button>
-        </Dialog.Footer>
+      <Dialog.Header>
+        <Dialog.Title>Review Game {addGameResult.gameid}</Dialog.Title>
+        <Dialog.Description>
+          Participants received a confirmation email. 
+          All must confirm by {new Date(addGameResult.expires_in * 1000).toLocaleString()} or the game will be canceled.
+        </Dialog.Description>
+      </Dialog.Header>
+      <Gameview Game={addGameResult} />
+      <Dialog.Footer>
+        <Button on:click={() => {
+          addGameResult = undefined;
+          addParticipants = [];
+        }}>
+          Create new Game
+        </Button>
+      </Dialog.Footer>
       {/if}
     </Dialog.Content>
   </Dialog.Root>
