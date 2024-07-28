@@ -13,8 +13,19 @@ import (
 )
 
 func UpdateGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName, gameid, username string, setReadonly bool) error {
+	expressionAttributeNames := map[string]string{
+		"#participants": "participants",
+		"#username":     username,
+		"#confirmed":    "confirmed",
+	}
+	expressionAttributeValues := map[string]types.AttributeValue{
+		":confirmed": &types.AttributeValueMemberBOOL{Value: true},
+	}
 	var updateExpression string
 	if setReadonly {
+		expressionAttributeNames["#readonly"] = "readonly"
+		expressionAttributeNames["#expires_in"] = "expires_in"
+		expressionAttributeValues[":readonly"] = &types.AttributeValueMemberBOOL{Value: true}
 		updateExpression = "SET #readonly = :readonly, #participants.#username.#confirmed = :confirmed  REMOVE #expires_in"
 	} else {
 		updateExpression = "SET #participants.#username.#confirmed = :confirmed"
@@ -25,20 +36,11 @@ func UpdateGame(dynamoClient *dynamodb.Client, ctx context.Context, tableName, g
 		Key: map[string]types.AttributeValue{
 			"gameid": &types.AttributeValueMemberS{Value: gameid},
 		},
-		ConditionExpression: aws.String("attribute_exists(gameid)"), // prevent it to upsert if not existent
-		ExpressionAttributeNames: map[string]string{
-			"#participants": "participants",
-			"#username":     username,
-			"#confirmed":    "confirmed",
-			"#readonly":     "readonly",
-			"#expires_in":   "expires_in",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":confirmed": &types.AttributeValueMemberBOOL{Value: true},
-			":readonly":  &types.AttributeValueMemberBOOL{Value: true},
-		},
-		UpdateExpression: aws.String(updateExpression),
-		ReturnValues:     types.ReturnValueAllNew,
+		ConditionExpression:       aws.String("attribute_exists(gameid)"), // prevent it to upsert if not existent
+		ExpressionAttributeNames:  expressionAttributeNames,
+		ExpressionAttributeValues: expressionAttributeValues,
+		UpdateExpression:          aws.String(updateExpression),
+		ReturnValues:              types.ReturnValueAllNew,
 	})
 	if err != nil {
 		return err

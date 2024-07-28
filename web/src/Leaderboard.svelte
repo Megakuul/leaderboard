@@ -129,6 +129,19 @@
             <div transition:fade={{ delay: 250, duration: 300 }} class="flex flex-col gap-4 m-1 p-4 my-4 bg-black bg-opacity-60 rounded-lg">
               <Input bind:value={participant.username} type="text" placeholder="Username" class="w-full" />
               <div class="flex flex-row gap-2">
+                <Select.Root portal={null} bind:selected={participant.team}>
+                  <Select.Trigger class="w-full">
+                    <Select.Value placeholder="Select a query type" />
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Group>
+                      <Select.Label>Query Type</Select.Label>
+                      {#each addParticipants as _, i}
+                        <Select.Item value={i} label={i}>{"Team " + i}</Select.Item>
+                      {/each}
+                    </Select.Group>
+                  </Select.Content>
+                </Select.Root>
                 <Input bind:value={participant.team} on:input={(_) => participant.team = +participant.team} type="number" placeholder="Team" class="w-full" />
                 <Input bind:value={participant.placement} on:input={(_) => participant.placement = +participant.placement} type="number" placeholder="Placement" class="w-full" />
                 <Input bind:value={participant.points} on:input={(_) => participant.points = +participant.points} type="number" placeholder="Points" class="w-full" />

@@ -37,7 +37,7 @@ func FetchByPage(dynamoClient *dynamodb.Client, ctx context.Context, tableName s
 		},
 		KeyConditionExpression: aws.String("#user_region = :user_region"),
 		Limit:                  aws.Int32(pageSize),
-		ScanIndexForward:       aws.Bool(true),
+		ScanIndexForward:       aws.Bool(false),
 		ExclusiveStartKey:      pageKey,
 	})
 

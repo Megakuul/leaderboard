@@ -82,7 +82,7 @@ func runConfirmHandler(dynamoClient *dynamodb.Client, request *events.APIGateway
 
 	userUpdateFailure := false
 	for _, part := range game.Participants {
-		err = update.UpdateUser(dynamoClient, ctx, USERTABLE, subject, part.EloUpdate)
+		err = update.UpdateUser(dynamoClient, ctx, USERTABLE, part.Subject, part.EloUpdate)
 		if err != nil {
 			userUpdateFailure = true
 		}

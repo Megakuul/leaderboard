@@ -26,7 +26,7 @@ func FetchByElo(dynamoClient *dynamodb.Client, ctx context.Context, tableName st
 			":elo":         &types.AttributeValueMemberN{Value: elo},
 		},
 		KeyConditionExpression: aws.String("#user_region = :user_region AND #elo <= :elo"),
-		ScanIndexForward:       aws.Bool(true),
+		ScanIndexForward:       aws.Bool(false),
 		Limit:                  aws.Int32(pageSize),
 	})
 	if err != nil {
